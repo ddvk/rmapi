@@ -15,7 +15,7 @@ import (
 func syncCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
 		Name:      "sync",
-		Help:      "sync from remarkable cloud into a given directory and DELETES lokal files",
+		Help:      "sync from remarkable cloud into a given directory and DELETES all local files which does not exist in the cloud!",
 		Completer: createDirCompleter(ctx),
 		Func: func(c *ishell.Context) {
 			if len(c.Args) == 0 {

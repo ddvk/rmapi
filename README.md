@@ -1,9 +1,11 @@
 # rMAPI
 
-*Warning*: If you installed _rmapi_ before (October 1, 2018), you will need to install the latest version,
-otherwise _rmapi_ will fail to authenticate after the changes in the server API that were introduced in September 28, 2018.
-
 rMAPI is a Go app that allows you to access the ReMarkable Cloud API programmatically.
+
+This is a fork of https://github.com/juruen/rmapi
+The following points are different:
+- geta and mgeta for notebooks and pdf files using scripts (no native go implementation)
+- sync command which synchronizes cloud -> local file only. All local files that does not in the cloud are deleted local!
 
 You can interact with the different API end-points through a shell. However, you can also
 run commands non-interactively. This may come in handy to script certian workflows such as
