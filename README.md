@@ -125,6 +125,17 @@ E.g: download all the files
 mgeta .
 ```
 
+## [optional] Recursively download directories and files with annotations and delete files lokal that does not exist in the cloud
+
+Use `sync path_to_dir` to recursively download all the annotated files in that directory and delete lokal files that does not exist in the cloud.
+Note: This command is only available if the geta command is also available.
+
+E.g: download all the files
+
+```
+sync .
+```
+
 
 ## Create a directoy
 

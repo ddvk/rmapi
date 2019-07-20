@@ -57,8 +57,9 @@ func RunShell(apiCtx *api.ApiCtx) error {
 	if(hasAllToolsForGetaInstalled){
 		shell.AddCmd(getaCmd(ctx))
 		shell.AddCmd(mgetaCmd(ctx))
+		shell.AddCmd(syncCmd(ctx))
 	} else {
-		log.Warning.Println(fmt.Sprintf("Commands geta and mgeta are disabled" + 
+		log.Warning.Println(fmt.Sprintf("Commands geta, mgeta and sync are disabled" + 
 			" because the following tools are not installed: \n %v", 
 			strings.Join(missingTools, "\n ")))
 	}

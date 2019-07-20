@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/abiosoft/ishell"
 	"github.com/peerdavid/rmapi/filetree"
 	"github.com/peerdavid/rmapi/model"
 )
 
-func mgetaCmd(ctx *ShellCtxt) *ishell.Cmd {
+func syncCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
-		Name:      "mgeta",
-		Help:      "recursively copy remote directory to local with annotations",
+		Name:      "sync",
+		Help:      "sync from remarkable cloud into a given directory and DELETES lokal files",
 		Completer: createDirCompleter(ctx),
 		Func: func(c *ishell.Context) {
 			if len(c.Args) == 0 {
@@ -28,6 +29,28 @@ func mgetaCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			if err != nil || node.IsFile() {
 				c.Err(errors.New("directory doesn't exist"))
+				return
+			}
+			
+			// Read all lokal files
+			var lokalFiles map[string]bool
+			lokalFiles = make(map[string]bool)
+			err = filepath.Walk(".",
+				func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				
+				// Is file
+				if info.Mode().IsRegular(){
+					lokalFiles["./" + path] = true
+				}
+				return nil
+			})
+
+			
+			if err != nil {
+				c.Err(errors.New("failed to load lokal files for sync."))
 				return
 			}
 
@@ -45,7 +68,8 @@ func mgetaCmd(ctx *ShellCtxt) *ishell.Cmd {
 					if currentNode.IsDirectory() {
 						return filetree.ContinueVisiting
 					}
-
+					
+					lokalFiles[dst + ".pdf"] = false
 					c.Printf("downloading [%s]...", dst)
 					
 					err = getAnnotatedDocument(ctx, currentNode, fmt.Sprintf("%s", dir))
@@ -62,6 +86,18 @@ func mgetaCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 
 			filetree.WalkTree(node, visitor)
+
+			// Delete lokal files
+			for file, delete := range lokalFiles { 
+				if delete == false{
+					continue
+				}
+
+				err = os.Remove(file)
+				if err != nil {
+					c.Err(errors.New("could not delete lokal file " + file))
+				}
+			}
 		},
 	}
 }
