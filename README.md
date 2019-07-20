@@ -192,5 +192,5 @@ rmapi --fuse-mount mount_point
 
 
 # Thanks to
-[1] rmapi, https://github.com/peerdavid/rmapi <br />
+[1] rmapi, https://github.com/juruen/rmapi <br />
 [1] rM2svg, https://github.com/reHackable/maxio <br />
