@@ -6,7 +6,7 @@ This is a fork of https://github.com/juruen/rmapi
 The following points are different:
 - geta and mgeta supports notebooks and pdf files using python and bash scripts (no native go implementation)
 - mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted!
-- zotero to sync all papers from zotero to your rm cloud
+- WIP: zotero to sync all papers from zotero to your rm cloud
 
 You can interact with the different API end-points through a shell. However, you can also
 run commands non-interactively. This may come in handy to script certain workflows such as

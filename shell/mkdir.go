@@ -8,6 +8,40 @@ import (
 	"github.com/abiosoft/ishell"
 )
 
+func mkdir(target string, ctx *ShellCtxt)(error){
+	_, err := ctx.api.Filetree.NodeByPath(target, ctx.node)
+	if err == nil {
+		return nil
+	}
+
+	parentDir := path.Dir(target)
+	newDir := path.Base(target)
+
+	if newDir == "/" || newDir == "." {
+		return errors.New("invalid directory name")
+	}
+
+	parentNode, err := ctx.api.Filetree.NodeByPath(parentDir, ctx.node)
+
+	if err != nil || parentNode.IsFile() {
+		return errors.New("directory doesn't exist")
+	}
+
+	parentId := parentNode.Id()
+	if parentNode.IsRoot() {
+		parentId = ""
+	}
+
+	document, err := ctx.api.CreateDir(parentId, newDir)
+
+	if err != nil {
+		return errors.New(fmt.Sprint("failed to create directory", err))
+	}
+
+	ctx.api.Filetree.AddDocument(document)
+	return nil
+}
+
 func mkdirCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
 		Name:      "mkdir",
@@ -20,42 +54,11 @@ func mkdirCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 
 			target := c.Args[0]
-
-			_, err := ctx.api.Filetree.NodeByPath(target, ctx.node)
-
-			if err == nil {
-				c.Println("entry already exists")
-				return
-			}
-
-			parentDir := path.Dir(target)
-			newDir := path.Base(target)
-
-			if newDir == "/" || newDir == "." {
-				c.Err(errors.New("invalid directory name"))
-				return
-			}
-
-			parentNode, err := ctx.api.Filetree.NodeByPath(parentDir, ctx.node)
-
-			if err != nil || parentNode.IsFile() {
-				c.Err(errors.New("directory doesn't exist"))
-				return
-			}
-
-			parentId := parentNode.Id()
-			if parentNode.IsRoot() {
-				parentId = ""
-			}
-
-			document, err := ctx.api.CreateDir(parentId, newDir)
-
+			err := mkdir(target, ctx)
 			if err != nil {
-				c.Err(errors.New(fmt.Sprint("failed to create directory", err)))
+				c.Err(err)
 				return
 			}
-
-			ctx.api.Filetree.AddDocument(document)
 		},
 	}
 }

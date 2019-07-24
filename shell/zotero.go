@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"sort"
 	"io/ioutil"
 	
 	"github.com/abiosoft/ishell"
@@ -125,7 +126,7 @@ func printFromZotero(url string) () {
 
 
 func getFullZoteroPath(directory ZoteroDirectory, dirMap map[string]ZoteroDirectory, direcotries []ZoteroDirectory) (string){
-	tmp := directory.Data.Name + "/"
+	tmp := directory.Data.Name
 	for directory.Data.ParentCollection != false {
 		parentId := fmt.Sprintf("%v", directory.Data.ParentCollection)
 		directory = dirMap[parentId]
@@ -146,12 +147,23 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			srcName := c.Args[0]
-
-			node, err := ctx.api.Filetree.NodeByPath(srcName, ctx.node)
+			rmSrcDir := c.Args[0] + "/"
+			node, err := ctx.api.Filetree.NodeByPath(rmSrcDir, ctx.node)
 
 			if err != nil || node.IsFile() {
-				c.Err(errors.New("directory doesn't exist"))
+				c.Err(errors.New("remote directory does not exist"))
+				return
+			}
+
+			path, err := ctx.api.Filetree.NodeToPath(node)
+			if err != nil || node.IsFile() {
+				c.Err(errors.New("remote directory does not exist"))
+				return
+			}
+
+
+			if err != nil || node.IsFile() {
+				c.Err(errors.New("zotero directory doesn't exist on rm cloud"))
 				return
 			}
 			
@@ -163,7 +175,7 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			// Create dirmap
+			// Create dirmap (id, dirname) and fulldirmap (id, path)
 			var dirMap map[string]ZoteroDirectory
 			dirMap = make(map[string]ZoteroDirectory)
 			for _, zoteroDir := range zoteroDirectories{
@@ -177,18 +189,30 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				fullDirMap[zoteroDir.Key] = fullDir
 			}
 
-			hiddenFolder := "tmpZoteroRmSync/"
-			os.MkdirAll(hiddenFolder, os.ModePerm)
+			keys := make([]string, 0, len(fullDirMap))
+			for k := range fullDirMap {
+				keys = append(keys, k)
+			}
+
+			sort.SliceStable(keys, func(i, j int) bool {
+				return len(fullDirMap[keys[i]]) < len(fullDirMap[keys[j]])
+			})
 		
 			//url := BaseZoteroURL+UserId+"/collections"
 			//printFromZotero(url)
 
 			// Download all zotero files
 			// ToDo: Download only if file does not exist in rm cloud
-			for _, zoteroDir := range zoteroDirectories{
-				path := hiddenFolder + fullDirMap[zoteroDir.Key]
-				os.MkdirAll(path, os.ModePerm)
+			hiddenFolder := ".tmpZoteroRmSync/"
+			os.MkdirAll(hiddenFolder, os.ModePerm)
+			
+			for _, key := range keys{
+				zoteroDir := dirMap[key]
+				path := fullDirMap[zoteroDir.Key]
+				zoteroPath := hiddenFolder + path
 
+				// Create local folder with files
+				os.MkdirAll(zoteroPath, os.ModePerm)
 				items, err := getZoteroItemsForDirectory(zoteroDir)
 				if err != nil {
 					c.Err(errors.New("failed to read items from zotero folder"))
@@ -197,16 +221,44 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				
 				for _, item := range items{
 					if item.Data.ContentType == "application/pdf"{
+						rmPath := rmSrcDir + path + "/" + item.Data.Filename
+						_, err := ctx.api.Filetree.NodeByPath(rmPath, ctx.node)
+						if err == nil{
+							fmt.Println(rmPath + "...already exists on rm." )
+							continue
+						}
+
+						fmt.Println(rmPath + " ...download from zotero." )
 						file, err := getFileFromZotero(item)
 						if err != nil {
-							c.Err(errors.New("failed to download pdf from zotero"))
-							return
+							c.Err(errors.New("failed to download pdf " + item.Data.Filename + " from zotero"))
 						}
-						fmt.Println(path + item.Data.Filename)
-						ioutil.WriteFile(path + item.Data.Filename, file, 0644)
+						ioutil.WriteFile(zoteroPath + "/" + item.Data.Filename, file, 0644)
 					}
 				}
 			}
+
+			// Upload to rm
+			fmt.Println("Upload all new papers to rm cloud..." )
+			treeFormatStr := "├"
+
+			// Back up current remote location.
+			currCtxPath := ctx.path
+			currCtxNode := ctx.node
+			// Change to requested directory.
+			ctx.path = path
+			ctx.node = node
+
+			c.Println()
+			putFilesAndDirs(ctx, c, "./" + hiddenFolder, 0, &treeFormatStr)
+			c.Println()
+
+			// Reset.
+			ctx.path = currCtxPath
+			ctx.node = currCtxNode
+
+			// Delete hidden folder
+			os.RemoveAll(hiddenFolder)
 		},
 	}
 }
