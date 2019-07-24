@@ -21,18 +21,12 @@ documents through a FUSE system. You can read further at the bottom of this file
 
 [Tutorial on how to directly print to your reMarkable on Mac with rMAPI](docs/tutorial-print-macosx.md)
 
-# Install
-
-## From sources
-
+# Install and uninstall
 Install and build the project:
-
 `go get -u github.com/peerdavid/rmapi`
 
-
-## Binary
-
-You can download an already built version for either Linux or OSX from [releases](https://github.com/peerdavid/rmapi/releases).
+Uninstall the project:
+`go clean -i -n github.com/peerdavid/rmapi`
 
 # API support
 
