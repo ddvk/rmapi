@@ -4,12 +4,13 @@ rMAPI is a Go app that allows you to access the ReMarkable Cloud API programmati
 
 This is a fork of https://github.com/juruen/rmapi
 The following points are different:
-- geta and mgeta for notebooks and pdf files using scripts (no native go implementation)
+- geta and mgeta supports notebooks and pdf files using python and bash scripts (no native go implementation)
 - mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted!
+- zotero to sync all papers from zotero to your rm cloud
 
 You can interact with the different API end-points through a shell. However, you can also
-run commands non-interactively. This may come in handy to script certian workflows such as
-taking automatic backups or uploading documents programmatically.
+run commands non-interactively. This may come in handy to script certain workflows such as
+taking automatic backups or uploading documents programatically.
 
 *Experimental*: Apart from the interactive shell, there's some work happing to access the
 documents through a FUSE system. You can read further at the bottom of this file.
@@ -33,7 +34,7 @@ Uninstall the project:
 - [x] list files and directories
 - [x] move around directories
 - [x] download a specific file
-- [x] download a directory and all its files and subdiretores recursively
+- [x] download a directory and all its files and subdirectories recursively
 - [x] create a directory
 - [x] delete a file or a directory
 - [x] move/rename a file or a directory
@@ -187,4 +188,6 @@ rmapi --fuse-mount mount_point
 
 # Thanks to
 [1] rmapi, https://github.com/juruen/rmapi <br />
-[1] rM2svg, https://github.com/reHackable/maxio <br />
+[2] rM2svg,  https://github.com/lschwetlick/maxio <br />
+[3] rM2svg, Eric S Fraga (see tools/rM2svg) <br />
+[4] zotero-sync, https://github.com/Maaarcocr/rm-zoterosync <br />

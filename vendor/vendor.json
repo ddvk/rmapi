@@ -66,6 +66,12 @@
 			"revisionTime": "2017-09-26T11:14:11Z"
 		},
 		{
+			"checksumSHA1": "Csp4gw0cJA4yUUOsVNbQP8cxto0=",
+			"path": "github.com/peterhellberg/link",
+			"revision": "9b91929be50d62b6748357e9cf8359d7a948abd5",
+			"revisionTime": "2019-01-24T11:45:51Z"
+		},
+		{
 			"checksumSHA1": "zKKp5SZ3d3ycKe4EKMNT0BqAWBw=",
 			"origin": "github.com/stretchr/testify/vendor/github.com/pmezard/go-difflib/difflib",
 			"path": "github.com/pmezard/go-difflib/difflib",

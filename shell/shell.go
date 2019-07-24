@@ -50,6 +50,7 @@ func RunShell(apiCtx *api.ApiCtx) error {
 	shell.AddCmd(mputCmd(ctx))
 	shell.AddCmd(versionCmd(ctx))
 	shell.AddCmd(statCmd(ctx))
+	shell.AddCmd(zoteroCmd(ctx))
 
 	// Add geta and mgeta if all necessary tools are installed
 	missingTools := verifyGetaCmdTools()

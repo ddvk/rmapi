@@ -1,5 +1,7 @@
 ## rmapi master
 
+* Added zotero sync
+
 * Added mirror from cloud command
 
 * Added geta and mgeta command to read annotated notebooks
