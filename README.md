@@ -5,7 +5,7 @@ rMAPI is a Go app that allows you to access the ReMarkable Cloud API programmati
 This is a fork of https://github.com/juruen/rmapi
 The following points are different:
 - geta and mgeta for notebooks and pdf files using scripts (no native go implementation)
-- sync command which synchronizes cloud -> local file only. All local files that does not in the cloud are deleted local!
+- mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted!
 
 You can interact with the different API end-points through a shell. However, you can also
 run commands non-interactively. This may come in handy to script certian workflows such as

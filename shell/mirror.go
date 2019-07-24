@@ -12,10 +12,10 @@ import (
 	"github.com/peerdavid/rmapi/model"
 )
 
-func syncCmd(ctx *ShellCtxt) *ishell.Cmd {
+func mirrorCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
-		Name:      "sync",
-		Help:      "sync from remarkable cloud into a given directory and DELETES all local files which does not exist in the cloud!",
+		Name:      "mirror",
+		Help:      "mirror from remarkable cloud into a given directory and DELETES all local files which does not exist in the cloud!",
 		Completer: createDirCompleter(ctx),
 		Func: func(c *ishell.Context) {
 			if len(c.Args) == 0 {
@@ -50,7 +50,7 @@ func syncCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			
 			if err != nil {
-				c.Err(errors.New("failed to load lokal files for sync."))
+				c.Err(errors.New("failed to load lokal files for mirror."))
 				return
 			}
 

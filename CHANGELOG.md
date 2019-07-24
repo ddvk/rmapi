@@ -1,6 +1,6 @@
 ## rmapi master
 
-* Added sync from cloud command
+* Added mirror from cloud command
 
 * Added geta and mgeta command to read annotated notebooks
 
