@@ -6,7 +6,7 @@ This is a fork of https://github.com/juruen/rmapi
 The following points are different:
 - geta and mgeta supports notebooks and pdf files using python and bash scripts (no native go implementation)
 - mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted!
-- WIP: zotero to sync all papers from zotero to your rm cloud
+- zotero to sync all papers from zotero to your rm cloud. ZOTERO_USERID and ZOTERO_APIKEY env must be set.
 
 You can interact with the different API end-points through a shell. However, you can also
 run commands non-interactively. This may come in handy to script certain workflows such as
@@ -124,14 +124,18 @@ mgeta .
 
 ## [optional] Recursively download directories and files with annotations and delete files lokal that does not exist in the cloud
 
-Use `sync path_to_dir` to recursively download all the annotated files in that directory and delete lokal files that does not exist in the cloud.
+Use `mirror path_to_dir` to recursively download all the annotated files in that directory and delete lokal files that does not exist in the cloud.
 Note: This command is only available if the geta command is also available.
 
 E.g: download all the files
 
 ```
-sync .
+mirror .
 ```
+
+## Zotero sync
+
+Use `zotero path_to_dir` to recursively download all the papers from your zotero account. To be able to sign in with your user the ZOTERO_APIKEY and ZOTERO_USERID environment variable must be set. TO get the key and the userid see https://www.zotero.org/settings/keys
 
 
 ## Create a directoy

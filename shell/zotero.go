@@ -10,9 +10,10 @@ import (
 	"sort"
 	"io/ioutil"
 	
+	"github.com/peerdavid/rmapi/util"
 	"github.com/abiosoft/ishell"
 	//"github.com/peterhellberg/link"
-	//"github.com/peerdavid/rmapi/filetree"
+	
 	//"github.com/peerdavid/rmapi/model"
 )
 
@@ -147,6 +148,11 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
+			if ApiKey == "" || UserId == "" {
+				c.Err(errors.New(("Set the ZOTERO_APIKEY and ZOTERO_USERID. See https://www.zotero.org/settings/keys")))
+				return
+			}
+
 			rmSrcDir := c.Args[0] + "/"
 			node, err := ctx.api.Filetree.NodeByPath(rmSrcDir, ctx.node)
 
@@ -167,7 +173,6 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 			
-			// ToDo: Read all zotero files
 			zoteroDirectories, err := getZoteroDirectories()
 			if err != nil {
 				fmt.Println(err)
@@ -198,11 +203,7 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return len(fullDirMap[keys[i]]) < len(fullDirMap[keys[j]])
 			})
 		
-			//url := BaseZoteroURL+UserId+"/collections"
-			//printFromZotero(url)
-
 			// Download all zotero files
-			// ToDo: Download only if file does not exist in rm cloud
 			hiddenFolder := ".tmpZoteroRmSync/"
 			os.MkdirAll(hiddenFolder, os.ModePerm)
 			
@@ -221,7 +222,7 @@ func zoteroCmd(ctx *ShellCtxt) *ishell.Cmd {
 				
 				for _, item := range items{
 					if item.Data.ContentType == "application/pdf"{
-						rmPath := rmSrcDir + path + "/" + item.Data.Filename
+						rmPath := rmSrcDir + path + "/" + util.DocPathToName(item.Data.Filename)
 						_, err := ctx.api.Filetree.NodeByPath(rmPath, ctx.node)
 						if err == nil{
 							fmt.Println(rmPath + "...already exists on rm." )
