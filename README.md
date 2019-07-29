@@ -1,11 +1,9 @@
 # rMAPI
 
-rMAPI is a Go app that allows you to access the ReMarkable Cloud API programmatically.
-
-This is a fork of https://github.com/juruen/rmapi
-The following points are different:
-- geta and mgeta supports notebooks and pdf files using python and bash scripts (no native go implementation)
-- mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted!
+rMAPI is a Go app that allows you to access the ReMarkable Cloud API programmatically
+and this repository is a fork of https://github.com/juruen/rmapi with the following extensions:
+- geta and mgeta to download annotated notebooks and pdf files (as pdf)
+- mirror command which synchronizes cloud to local. WARNING: All local files that does not in the cloud are deleted in the given directory!
 - zotero to sync all papers from zotero to your rm cloud. ZOTERO_USERID and ZOTERO_APIKEY env must be set.
 
 You can interact with the different API end-points through a shell. However, you can also
@@ -188,6 +186,11 @@ If you want to give it a go, you can run:
 ```bash
 rmapi --fuse-mount mount_point
 ```
+
+# Disclaimer
+The author(s) and contributor(s) are not associated with reMarkable AS, Norway. reMarkable is a registered trademark of reMarkable AS in some countries. Please see https://remarkable.com for their product.
+
+See also [LICENSE](LICENSE).
 
 
 # Thanks to
