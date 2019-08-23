@@ -134,6 +134,7 @@ func getAnnotatedDocument(ctx *ShellCtxt, node *model.Node, path string) error {
 			rM2svg).CombinedOutput()
 		
 		log.Trace.Println(fmt.Sprintf("%s", output))
+		//fmt.Println(fmt.Sprintf("%s", output))
 
 		if err != nil {
 			cleanup(tmpFolder, zipFile);

@@ -90,7 +90,7 @@ def main():
 
 def abort(msg):
     print(msg, file=sys.stderr)
-    sys.exit(1)
+    exit(1)
 
 
 def lines2svg(path, output_name, coloured_annotations=False,
@@ -114,14 +114,19 @@ def lines2svg(path, output_name, coloured_annotations=False,
         offset = 0
 
         # Is this a reMarkable .lines file?
-        expected_header=b'reMarkable .lines file, version=3          '
-        if len(data) < len(expected_header) + 4:
+
+        expected_header_v3=b'reMarkable .lines file, version=3          '
+        expected_header_v5=b'reMarkable .lines file, version=5          '
+        if len(data) < len(expected_header_v5) + 4:
             abort('File too short to be a valid file')
 
-        fmt = '<{}sI'.format(len(expected_header))
+        fmt = '<{}sI'.format(len(expected_header_v5))
         header, nlayers = struct.unpack_from(fmt, data, offset); offset += struct.calcsize(fmt)
-        if header != expected_header or nlayers < 1:
+        is_v3 = (header == expected_header_v3)
+        is_v5 = (header == expected_header_v5)
+        if (not is_v3 and not is_v5) or  nlayers < 1:
             abort('Not a valid reMarkable file: <header={}><nlayers={}>'.format(header, nlayers))
+            return
 
         output = open("{}{:05}.svg".format(output_name, page+1), 'w')
         output.write('<svg xmlns="http://www.w3.org/2000/svg" height="{}" width="{}">\n'.format(y_width, x_width)) # BEGIN page
@@ -133,33 +138,39 @@ def lines2svg(path, output_name, coloured_annotations=False,
 
             # Iterate through the strokes in the layer (If there is any)
             for stroke in range(nstrokes):
-                fmt = '<IIIfI'
-                pen, colour, i_unk, width, nsegments = struct.unpack_from(fmt, data, offset); offset += struct.calcsize(fmt)
+                if is_v3:
+                    fmt = '<IIIfI'
+                    pen, colour, i_unk, width, nsegments = struct.unpack_from(fmt, data, offset); offset += struct.calcsize(fmt)
+                if is_v5:
+                    fmt = '<IIIffI'
+                    pen, colour, i_unk, width, unknown, nsegments = struct.unpack_from(fmt, data, offset); offset += struct.calcsize(fmt)
+                    #print('Stroke {}: pen={}, colour={}, width={}, unknown={}, nsegments={}'.format(stroke, pen, colour, width, unknown, nsegments))
+                
                 opacity = 1
                 last_x = -1.; last_y = -1.
-                #if i_unk != 0: # No theory on that one
-                    #print('Unexpected value at offset {}'.format(offset - 12))
-                if pen == 0 or pen == 1:
-                    pass # Dynamic width, will be truncated into several strokes
-                elif pen == 2 or pen == 4: # Pen / Fineliner
+
+                # See also https://support.remarkable.com/hc/en-us/articles/115004558545-5-1-Tools-Overview
+                if (pen == 0 or pen == 12): # Brush
+                    pass
+                elif (pen == 2 or pen == 15) or (pen == 4 or pen == 17): # BallPoint | Fineliner
                     width = 32 * width * width - 116 * width + 107
                     if(x_width == default_x_width and y_width == default_y_width):
                         width *= 1.8
-                elif pen == 3: # Marker
+                elif (pen == 3 or pen == 16): # Marker
                     width = 64 * width - 112
                     opacity = 0.9
-                elif pen == 5: # Highlighter
+                elif (pen == 5 or pen == 18): # Highlighter
                     width = 30
                     opacity = 0.2
                     if coloured_annotations:
                         colour = 3
-                elif pen == 6: # Eraser
+                elif (pen == 6): # Eraser
                     width = 1280 * width * width - 4800 * width + 4510
                     colour = 2
-                elif pen == 7: # Pencil-Sharp
+                elif (pen == 7 or pen == 13) or (pen == 1 or pen == 14): # Sharp Pencil | Tilt Pencil
                     width = 16 * width - 27
                     opacity = 0.9
-                elif pen == 8: # Erase area
+                elif (pen == 8): # Erase area
                     opacity = 0.
                 else: 
                     print('Unknown pen: {}'.format(pen))
@@ -228,6 +239,9 @@ def lines2svg(path, output_name, coloured_annotations=False,
 if __name__ == "__main__":
     main()
 
+#
+# revision 1.9
+# Support for .lines files V3 and V5
 #
 # revision 1.8
 # Changed for usage of rmapi
