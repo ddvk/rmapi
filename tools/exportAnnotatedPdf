@@ -14,6 +14,12 @@ id=$2
 output=$3
 rM2svg=$4
 templatesdir="${HOME}/Templates/Remarkable"
+notesonly=$5
+echo $@
+
+if [ "$notesonly" == "y" ]; then
+    ADDPARM="-p -n"
+fi
 
 # Open folder that contains the .rm files
 cd ${base}
@@ -51,7 +57,7 @@ else
 fi
 
 # Create svg files
-$rM2svg -c -i ${id} --width ${width} --height ${height} -o ""
+$rM2svg -c -i ${id} --width ${width} --height ${height} -o "" $ADDPARM
 
 # Read possible templates 
 if [ "$usetemplates" == "yes" ];
@@ -95,7 +101,11 @@ done
 
 pdftk  ${id}_*.pdf cat output ${id}_annotations.pdf
 
-if [ -f ${doc} ]; then
+if [ "$notesonly" == "y" ];then
+    output="${output}_notes"
+fi
+
+if ([ -f ${doc} ] && [ ! "$notesonly" == "y" ]); then
     pdftk ${doc} multistamp ${id}_annotations.pdf output ../"${output}.pdf"
 else
     mv ${id}_annotations.pdf ../"${output}.pdf"

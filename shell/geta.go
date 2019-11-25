@@ -59,7 +59,7 @@ func getaCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			err = getAnnotatedDocument(ctx, node, "")
+			err = getAnnotatedDocument(ctx, node, "", false)
 			if err != nil {
 				c.Err(err)
 				return
@@ -71,7 +71,7 @@ func getaCmd(ctx *ShellCtxt) *ishell.Cmd {
 }
 
 
-func getAnnotatedDocument(ctx *ShellCtxt, node *model.Node, path string) error {
+func getAnnotatedDocument(ctx *ShellCtxt, node *model.Node, path string, notes bool) error {
 	zipFile := fmt.Sprintf(".%s.zip", node.Name())
 
 	// Set output name and output file name
@@ -89,10 +89,11 @@ func getAnnotatedDocument(ctx *ShellCtxt, node *model.Node, path string) error {
 		log.Warning.Println("Could not parse modified time. Overwrite existing file.")
 		modifiedClientTime = time.Now().Local()
 	}
+    fmt.Printf(outputFileName)
 
 	// If document has not changed since last update skip pdf convertion
 	outputFile, err := os.Stat(outputFileName)
-	if !os.IsNotExist(err) {
+	if !os.IsNotExist(err) && !notes {
 		outputFileModTime := outputFile.ModTime()
 		if(outputFileModTime.Equal(modifiedClientTime)){
 			log.Trace.Println("Nothing changed since last download. Skip. ")
@@ -125,18 +126,26 @@ func getAnnotatedDocument(ctx *ShellCtxt, node *model.Node, path string) error {
 	if(documentIsAnnotated(tmpFolder, node)){
 		exportPdf := os.Getenv("GOPATH") + "/src/github.com/peerdavid/rmapi/tools/exportAnnotatedPdf"
 		rM2svg := os.Getenv("GOPATH") + "/src/github.com/peerdavid/rmapi/tools/rM2svg"
+        var withnotes string
+        if notes {
+            withnotes = "y"
+        } else {
+            withnotes = ""
+        }
 		output, err := exec.Command(
 			"/bin/bash", 
 			exportPdf, 
 			tmpFolder,
 			node.Document.ID, 
 			output, 
-			rM2svg).CombinedOutput()
+			rM2svg,
+            withnotes).CombinedOutput()
 		
 		log.Trace.Println(fmt.Sprintf("%s", output))
-		//fmt.Println(fmt.Sprintf("%s", output))
+		fmt.Println(fmt.Sprintf("%s", output))
 
 		if err != nil {
+            fmt.Println("errorn");
 			cleanup(tmpFolder, zipFile);
 			return err
 		}

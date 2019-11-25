@@ -72,7 +72,7 @@ func mirrorCmd(ctx *ShellCtxt) *ishell.Cmd {
 					lokalFiles[dst + ".pdf"] = false
 					c.Printf("downloading [%s]...", dst)
 					
-					err = getAnnotatedDocument(ctx, currentNode, fmt.Sprintf("%s", dir))
+					err = getAnnotatedDocument(ctx, currentNode, fmt.Sprintf("%s", dir), false)
 
 					if err == nil {
 						c.Println(" OK")

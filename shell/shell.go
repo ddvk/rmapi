@@ -51,14 +51,14 @@ func RunShell(apiCtx *api.ApiCtx) error {
 	shell.AddCmd(versionCmd(ctx))
 	shell.AddCmd(statCmd(ctx))
 	shell.AddCmd(zoteroCmd(ctx))
-
+    shell.AddCmd(mirrorCmd(ctx))
 	// Add geta and mgeta if all necessary tools are installed
 	missingTools := verifyGetaCmdTools()
 	hasAllToolsForGetaInstalled := len(missingTools) <= 0
 	if(hasAllToolsForGetaInstalled){
 		shell.AddCmd(getaCmd(ctx))
 		shell.AddCmd(mgetaCmd(ctx))
-		shell.AddCmd(mirrorCmd(ctx))
+		shell.AddCmd(getnCmd(ctx))
 	} else {
 		log.Warning.Println(fmt.Sprintf("Commands geta, mgeta and sync are disabled" + 
 			" because the following tools are not installed: \n %v", 

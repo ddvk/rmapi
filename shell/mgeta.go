@@ -48,7 +48,7 @@ func mgetaCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 					c.Printf("downloading [%s]...", dst)
 					
-					err = getAnnotatedDocument(ctx, currentNode, fmt.Sprintf("%s", dir))
+					err = getAnnotatedDocument(ctx, currentNode, fmt.Sprintf("%s", dir), false)
 
 					if err == nil {
 						c.Println(" OK")
