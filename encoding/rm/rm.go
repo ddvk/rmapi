@@ -102,9 +102,9 @@ type BrushSize float32
 
 // 3 different brush sizes are noticed.
 const (
-	Small  BrushSize = 1.875
-	Medium BrushSize = 2.0
-	Large  BrushSize = 2.125
+	Small  BrushSize = 0.3
+	Medium BrushSize = 0.6
+	Large  BrushSize = 0.8
 )
 
 // A Rm represents an entire .rm file
