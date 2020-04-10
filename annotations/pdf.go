@@ -173,36 +173,35 @@ func (p *PdfGenerator) initBackgroundPages(pdfArr []byte) error {
 }
 
 func (p *PdfGenerator) addBackgroundPage(c *creator.Creator, pageNum int) (*pdf.PdfPage, error) {
-	var page *pdf.PdfPage
+	page := c.NewPage()
 
 	if !p.template && !p.options.AnnotationsOnly {
-		page1, err := p.pdfReader.GetPage(pageNum)
+		tmpPage, err := p.pdfReader.GetPage(pageNum)
 		if err != nil {
 			return nil, err
 		}
-		block, err := creator.NewBlockFromPage(page1)
+		block, err := creator.NewBlockFromPage(tmpPage)
 		if err != nil {
 			return nil, err
 		}
-		mb, err := page1.GetMediaBox()
-		fmt.Println(mb)
-		c.SetPageSize(creator.PageSize{block.Width(), block.Height()})
-		//convert: Letter->A4
-		factor := rmPageSize[0] / block.Width()
-		//factor = factor * 0.99
-		fmt.Println("Factor", factor)
-		//todo: remove hack
+		// mb, err := tmpPage.GetMediaBox()
+		// if err != nil {
+		// 	return nil, err
+		// }
+		factor := block.Height() / block.Width()
 		block.SetPos(0.0, 0.0)
-		block.Scale(factor, factor)
-		page = c.NewPage()
+		block.SetMargins(0.0, 0.0, 0.0, 0.0)
+
+		if factor > 1.33 {
+			block.ScaleToHeight(rmPageSize[1])
+		} else {
+			block.ScaleToWidth(rmPageSize[0])
+		}
 
 		err = c.Draw(block)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		page = c.NewPage()
-
 	}
 
 	if p.options.AddPageNumbers {
