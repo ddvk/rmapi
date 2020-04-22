@@ -215,11 +215,12 @@ func (ctx *ApiCtx) UploadDocument(id string, parentId string, sourceDocPath stri
 		if err != nil {
 			return nil, err
 		}
-		zipPath = sourceDocPath
 		meta.VissibleName = name
 		meta.Parent = parentId
 		meta.Version = version
+
 		metaDoc = meta
+		zipPath = sourceDocPath
 	}
 
 	uploadRsp, err := ctx.uploadRequest(id, model.DocumentType, version)

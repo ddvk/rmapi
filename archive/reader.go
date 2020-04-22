@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,9 +23,11 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 	}
 
 	// reading content first because it contains the number of pages
-	if err := z.readContent(zr); err != nil {
+	id, err := z.readContent(zr)
+	if err != nil {
 		return err
 	}
+	z.UUID = id
 
 	// instanciate the slice of pages
 	if z.Content.PageCount == 0 {
@@ -60,32 +63,35 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 }
 
 // readContent reads the .content file contained in an archive
-func (z *Zip) readContent(zr *zip.Reader) error {
+func (z *Zip) readContent(zr *zip.Reader) (string, error) {
 	files, err := zipExtFinder(zr, ".content")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if len(files) != 1 {
-		return errors.New("archive does not contain a unique content file")
+		return "", errors.New("archive does not contain a unique content file")
 	}
 
-	file, err := files[0].Open()
+	contentFile := files[0]
+	file, err := contentFile.Open()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer file.Close()
 
 	bytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err = json.Unmarshal(bytes, &z.Content); err != nil {
-		return err
+		return "", err
 	}
+	p := contentFile.FileInfo().Name()
+	id := strings.TrimSuffix(path.Base(p), path.Ext(p))
 
-	return nil
+	return id, nil
 }
 
 // readPagedata reads the .pagedata file contained in an archive

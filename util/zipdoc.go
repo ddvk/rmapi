@@ -72,8 +72,10 @@ func GetaMetaDataFromZip(srcPath string) (meta *model.MetadataDocument, err erro
 		return
 	}
 
+	tmpMeta := model.CreateUploadDocumentMeta(zip.UUID, model.DocumentType, "", "")
 	meta = &model.MetadataDocument{}
 	meta.ID = zip.UUID
+	meta = &tmpMeta
 	return
 }
 
