@@ -215,6 +215,7 @@ func (ctx *ApiCtx) UploadDocument(id string, parentId string, sourceDocPath stri
 		if err != nil {
 			return nil, err
 		}
+		id = meta.ID
 		meta.VissibleName = name
 		meta.Parent = parentId
 		meta.Version = version
@@ -260,6 +261,7 @@ func (ctx *ApiCtx) UploadDocument(id string, parentId string, sourceDocPath stri
 
 	if metaDoc == nil {
 		tmpMeta := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DocumentType, parentId, name)
+		tmpMeta.Version = version
 		metaDoc = &tmpMeta
 	}
 

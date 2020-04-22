@@ -54,8 +54,10 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 			version := 1
 			docNode, err := ctx.api.Filetree.NodeByPath(docName, node)
 			if err == nil && !*force {
+				fmt.Println(docNode.Id())
+				fmt.Println(docNode.Name())
+				fmt.Println(docNode.Version())
 				c.Err(errors.New("entry already exists"))
-				fmt.Println(docNode)
 				return
 			}
 			//if overwriting
