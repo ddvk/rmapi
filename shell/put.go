@@ -2,6 +2,7 @@ package shell
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 
 	"github.com/abiosoft/ishell"
@@ -19,15 +20,29 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			srcName := c.Args[0]
+			flagSet := flag.NewFlagSet("put", flag.ContinueOnError)
+			force := flagSet.Bool("f", false, "force upload (overwrite)")
+			if err := flagSet.Parse(c.Args); err != nil {
+				if err != flag.ErrHelp {
+					c.Err(err)
+				}
+				return
+			}
+			argRest := flagSet.Args()
+			if len(argRest) == 0 {
+				c.Err(errors.New("missing source file"))
+				return
+			}
 
-			docName := util.DocPathToName(srcName)
+			srcName := argRest[0]
+
+			docName, _ := util.DocPathToName(srcName)
 
 			node := ctx.node
 			var err error
 
-			if len(c.Args) == 2 {
-				node, err = ctx.api.Filetree.NodeByPath(c.Args[1], ctx.node)
+			if len(argRest) == 2 {
+				node, err = ctx.api.Filetree.NodeByPath(argRest[1], ctx.node)
 
 				if err != nil || node.IsFile() {
 					c.Err(errors.New("directory doesn't exist"))
@@ -35,17 +50,24 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			}
 
-			_, err = ctx.api.Filetree.NodeByPath(docName, node)
-			if err == nil {
+			id := ""
+			version := 1
+			docNode, err := ctx.api.Filetree.NodeByPath(docName, node)
+			if err == nil && !*force {
 				c.Err(errors.New("entry already exists"))
 				return
+			}
+			//if overwriting
+			if docNode != nil {
+				id = docNode.Id()
+				version = docNode.Version() + 1
 			}
 
 			c.Printf("uploading: [%s]...", srcName)
 
 			dstDir := node.Id()
 
-			document, err := ctx.api.UploadDocument(dstDir, srcName)
+			document, err := ctx.api.UploadDocument(id, dstDir, srcName, version)
 
 			if err != nil {
 				c.Err(errors.New(fmt.Sprint("Failed to upload file", srcName, err.Error())))

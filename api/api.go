@@ -107,7 +107,7 @@ func (ctx *ApiCtx) FetchDocument(docId, dstPath string) error {
 
 // CreateDir creates a remote directory with a given name under the parentId directory
 func (ctx *ApiCtx) CreateDir(parentId, name string) (model.Document, error) {
-	uploadRsp, err := ctx.uploadRequest(model.DirectoryType)
+	uploadRsp, err := ctx.uploadRequest("", model.DirectoryType, 1)
 
 	if err != nil {
 		return model.Document{}, err
@@ -199,14 +199,30 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 }
 
 // UploadDocument uploads a local document given by sourceDocPath under the parentId directory
-func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model.Document, error) {
-	name := util.DocPathToName(sourceDocPath)
+func (ctx *ApiCtx) UploadDocument(id string, parentId string, sourceDocPath string, version int) (*model.Document, error) {
+	name, ext := util.DocPathToName(sourceDocPath)
 
 	if name == "" {
 		return nil, errors.New("file name is invalid")
 	}
 
-	uploadRsp, err := ctx.uploadRequest(model.DocumentType)
+	var metaDoc *model.MetadataDocument
+	zipPath := ""
+
+	//restore document
+	if ext == ".zip" {
+		meta, err := util.GetaMetaDataFromZip(sourceDocPath)
+		if err != nil {
+			return nil, err
+		}
+		zipPath = sourceDocPath
+		meta.VissibleName = name
+		meta.Parent = parentId
+		meta.Version = version
+		metaDoc = meta
+	}
+
+	uploadRsp, err := ctx.uploadRequest(id, model.DocumentType, version)
 
 	if err != nil {
 		return nil, err
@@ -216,11 +232,14 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 		return nil, errors.New("upload request returned success := false")
 	}
 
-	zipPath, err := util.CreateZipDocument(uploadRsp.ID, sourceDocPath)
+	if metaDoc == nil {
+		tmpZip, err := util.CreateZipDocument(uploadRsp.ID, sourceDocPath)
 
-	if err != nil {
-		log.Error.Println("failed to create zip doc", err)
-		return nil, err
+		if err != nil {
+			log.Error.Println("failed to create zip doc", err)
+			return nil, err
+		}
+		zipPath = tmpZip
 	}
 
 	f, err := os.Open(zipPath)
@@ -238,9 +257,12 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 		return nil, err
 	}
 
-	metaDoc := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DocumentType, parentId, name)
+	if metaDoc == nil {
+		tmpMeta := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DocumentType, parentId, name)
+		metaDoc = &tmpMeta
+	}
 
-	err = ctx.Http.Put(transport.UserBearer, updateStatus, metaDoc, nil)
+	err = ctx.Http.Put(transport.UserBearer, updateStatus, *metaDoc, nil)
 
 	if err != nil {
 		log.Error.Println("failed to move entry", err)
@@ -252,8 +274,8 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 	return &doc, err
 }
 
-func (ctx *ApiCtx) uploadRequest(entryType string) (model.UploadDocumentResponse, error) {
-	uploadReq := model.CreateUploadDocumentRequest(entryType)
+func (ctx *ApiCtx) uploadRequest(id string, entryType string, version int) (model.UploadDocumentResponse, error) {
+	uploadReq := model.CreateUploadDocumentRequest(id, entryType, version)
 	uploadRsp := make([]model.UploadDocumentResponse, 0)
 
 	err := ctx.Http.Put(transport.UserBearer, uploadRequest, uploadReq, &uploadRsp)

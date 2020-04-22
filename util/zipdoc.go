@@ -3,16 +3,20 @@ package util
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/jpeg"
 	"io/ioutil"
-	"strings"
+	"os"
+	"path/filepath"
 
 	"bytes"
 
+	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/log"
+	"github.com/juruen/rmapi/model"
 	"github.com/nfnt/resize"
-	"github.com/unidoc/unipdf/v3/model"
+	pdfmodel "github.com/unidoc/unipdf/v3/model"
 	"github.com/unidoc/unipdf/v3/render"
 )
 
@@ -29,7 +33,7 @@ type zipDocumentContent struct {
 
 func makeThumbnail(pdf []byte) ([]byte, error) {
 
-	reader, err := model.NewPdfReader(bytes.NewReader(pdf))
+	reader, err := pdfmodel.NewPdfReader(bytes.NewReader(pdf))
 	if err != nil {
 		return nil, err
 	}
@@ -52,44 +56,64 @@ func makeThumbnail(pdf []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func CreateZipDocument(id, srcPath string) (string, error) {
-	pdf, err := ioutil.ReadFile(srcPath)
-
+func GetaMetaDataFromZip(srcPath string) (meta *model.MetadataDocument, err error) {
+	file, err := os.Open(srcPath)
 	if err != nil {
-		log.Error.Println("failed to open source document file to read", err)
-		return "", err
+		return
+	}
+	defer file.Close()
+	fi, err := file.Stat()
+	if err != nil {
+		return
+	}
+	zip := archive.Zip{}
+	err = zip.Read(file, fi.Size())
+	if err != nil {
+		return
 	}
 
+	meta = &model.MetadataDocument{}
+	meta.ID = zip.UUID
+	return
+}
+
+func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
+	ext := filepath.Ext(srcPath)
+	if ext == ".zip" {
+		err = errors.New("should not have been called")
+		return
+	}
+
+	doc, err := ioutil.ReadFile(srcPath)
+	if err != nil {
+		log.Error.Println("failed to open source document file to read", err)
+		return
+	}
+	// Create document (pdf or epub) file
 	tmp, err := ioutil.TempFile("", "rmapizip")
 	if err != nil {
-		return "", err
+		return
 	}
 	defer tmp.Close()
 
 	if err != nil {
 		log.Error.Println("failed to create tmpfile for zip doc", err)
-		return "", err
+		return
 	}
 
 	w := zip.NewWriter(tmp)
 	defer w.Close()
 
-	// Create document (pdf or epub) file
-	ext := "pdf"
-	if strings.HasSuffix(srcPath, "epub") {
-		ext = "epub"
-	}
-
-	f, err := w.Create(fmt.Sprintf("%s.%s", id, ext))
+	f, err := w.Create(fmt.Sprintf("%s%s", id, ext))
 	if err != nil {
 		log.Error.Println("failed to create doc entry in zip file", err)
-		return "", err
+		return
 	}
-	f.Write(pdf)
+	f.Write(doc)
 
 	//try to create a thumbnail
-	if ext == "pdf" {
-		thumbnail, err := makeThumbnail(pdf)
+	if ext == ".pdf" {
+		thumbnail, err := makeThumbnail(doc)
 		if err != nil {
 			log.Error.Println("cannot generate thumbnail", err)
 		} else {
@@ -106,7 +130,7 @@ func CreateZipDocument(id, srcPath string) (string, error) {
 	f, err = w.Create(fmt.Sprintf("%s.pagedata", id))
 	if err != nil {
 		log.Error.Println("failed to create content entry in zip file", err)
-		return "", err
+		return
 	}
 	f.Write(make([]byte, 0))
 
@@ -116,17 +140,18 @@ func CreateZipDocument(id, srcPath string) (string, error) {
 	f, err = w.Create(fmt.Sprintf("%s.content", id))
 	if err != nil {
 		log.Error.Println("failed to create content entry in zip file", err)
-		return "", err
+		return
 	}
 
 	c, err := createZipContent(ext)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	f.Write([]byte(c))
+	zipPath = tmp.Name()
 
-	return tmp.Name(), nil
+	return
 }
 
 func CreateZipDirectory(id string) (string, error) {

@@ -133,7 +133,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 
 		name := d.Name()
 
-		if ! pCtx.useHiddenFiles && strings.HasPrefix(d.Name(), ".") {
+		if !pCtx.useHiddenFiles && strings.HasPrefix(d.Name(), ".") {
 			continue
 		}
 
@@ -187,7 +187,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 			if checkFileType(name) {
 				// Is a pdf or epub file
 
-				docName := util.DocPathToName(name)
+				docName, _ := util.DocPathToName(name)
 				_, err := pCtx.api.Filetree.NodeByPath(docName, pCtx.node)
 
 				if err == nil {
@@ -198,7 +198,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 					// Document does not exist.
 					treeFormat(pC, depth, index, lSize, tFS)
 					pC.Printf("uploading: [%s]...", name)
-					doc, err := pCtx.api.UploadDocument(pCtx.node.Id(), name)
+					doc, err := pCtx.api.UploadDocument("", pCtx.node.Id(), name, 1)
 
 					if err != nil {
 						pC.Err(fmt.Errorf("failed to upload file %s", name))
