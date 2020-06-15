@@ -125,10 +125,10 @@ func (z *Zip) readPagedata(zr *zip.Reader) error {
 	return nil
 }
 
-// readPayload tries to extract the payload from an archive if it exists.
+// readPayload tries to extract the pdf payload from an archive if it exists.
 func (z *Zip) readPayload(zr *zip.Reader) error {
-	ext := z.Content.FileType
-	files, err := zipExtFinder(zr, "."+ext)
+	//epubs get converted to pdf
+	files, err := zipExtFinder(zr, ".pdf")
 	if err != nil {
 		return err
 	}

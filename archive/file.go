@@ -100,7 +100,7 @@ type Content struct {
 	PageCount   int    `json:"pageCount"`
 	// Pages is a list of page IDs
 	Pages     []string `json:"pages"`
-	TextScale int      `json:"textScale"`
+	TextScale float32  `json:"textScale"`
 
 	Transform Transform `json:"transform"`
 }
