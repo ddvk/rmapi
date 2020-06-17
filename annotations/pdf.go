@@ -13,7 +13,6 @@ import (
 	"github.com/unidoc/unipdf/v3/annotator"
 	"github.com/unidoc/unipdf/v3/contentstream"
 	"github.com/unidoc/unipdf/v3/contentstream/draw"
-	"github.com/unidoc/unipdf/v3/core"
 	"github.com/unidoc/unipdf/v3/creator"
 	pdf "github.com/unidoc/unipdf/v3/model"
 )
@@ -117,8 +116,6 @@ func (p *PdfGenerator) Generate() error {
 
 		contentCreator := contentstream.NewContentCreator()
 		contentCreator.Add_q()
-		contentCreator.Add_j("1")
-		contentCreator.Add_J("1")
 
 		for _, layer := range pageAnnotations.Data.Layers {
 			for _, line := range layer.Lines {
@@ -173,10 +170,10 @@ func (p *PdfGenerator) Generate() error {
 		}
 		contentCreator.Add_Q()
 		drawingOperations := contentCreator.Operations().String()
-		pageContentStreams, err := page.GetAllContentStreams()
-		//hack: wrap the page content in a context to prevent transformation matrix misalignment
-		wrapper := []string{"q", pageContentStreams, "Q", drawingOperations}
-		page.SetContentStreams(wrapper, core.NewFlateEncoder())
+		err = page.AddContentStreamByString(drawingOperations)
+		if err != nil {
+			return err
+		}
 	}
 
 	return c.WriteToFile(p.outputFilePath)
@@ -211,13 +208,25 @@ func (p *PdfGenerator) addBackgroundPage(c *creator.Creator, pageNum int) (*pdf.
 			return nil, err
 		}
 
+		block, err := creator.NewBlockFromPage(tmpPage)
+		if err != nil {
+			return nil, err
+		}
+		block.SetPos(0.0, 0.0)
+		block.SetMargins(0.0, 0.0, 0.0, 0.0)
+
 		// TODO: adjust the page if cropped
 		pageHeight := mbox.Ury - mbox.Lly
 		pageWidth := mbox.Urx - mbox.Llx
-		// use the pdf's page size
+
 		c.SetPageSize(creator.PageSize{pageWidth, pageHeight})
-		c.AddPage(tmpPage)
-		page = tmpPage
+		page = c.NewPage()
+		err = c.Draw(block)
+		fmt.Println("drawing")
+		if err != nil {
+			return nil, err
+		}
+
 	} else {
 		page = c.NewPage()
 	}
