@@ -129,6 +129,10 @@ type Line struct {
 	Points     []Point
 }
 
+func (l *Layer) AddLine(line Line) {
+	l.Lines = append(l.Lines, line)
+}
+
 // A Point has coordinates.
 type Point struct {
 	X         float32

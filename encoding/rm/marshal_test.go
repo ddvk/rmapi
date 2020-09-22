@@ -55,6 +55,16 @@ func drawRectange(x, y, w, h float32) []Point {
 	points = append(points, p)
 	return points
 }
+
+func drawLine(layer *Layer, x, y int) {
+	line := Line{
+		BrushSize:  Medium,
+		BrushColor: Black,
+		BrushType:  FinelinerV5,
+		Points:     drawCircle(float64(x), float64(y), 10),
+	}
+	layer.AddLine(line)
+}
 func testMarshalBinary(t *testing.T, fn string) {
 
 	points := make([]Point, 0)
@@ -71,48 +81,16 @@ func testMarshalBinary(t *testing.T, fn string) {
 		}
 		points = append(points, p)
 	}
+	layer := Layer{}
+	for i := 0; i < 2000; i += 20 {
+		for j := 0; j < 2000; j += 20 {
+			drawLine(&layer, i, j)
+		}
+	}
 
 	rm := Rm{
 		Layers: []Layer{
-			Layer{
-				Lines: []Line{
-					Line{
-						BrushSize:  Medium,
-						BrushColor: Black,
-						BrushType:  FinelinerV5,
-						Points:     drawCircle(500, 500, 100),
-					},
-					Line{
-						BrushSize:  Medium,
-						BrushColor: Black,
-						BrushType:  FinelinerV5,
-						Points:     drawRectange(400, 50, 200, 200),
-					},
-					Line{
-						BrushSize:  Large,
-						BrushColor: Black,
-						BrushType:  FinelinerV5,
-						Points: []Point{
-							Point{
-								X:         100,
-								Y:         400,
-								Speed:     2.,
-								Direction: 1.,
-								Width:     3.0,
-								Pressure:  .3,
-							},
-							Point{
-								X:         1000,
-								Y:         1000,
-								Speed:     2.,
-								Direction: 1.,
-								Width:     3.0,
-								Pressure:  .3,
-							},
-						},
-					},
-				},
-			},
+			layer,
 		},
 	}
 
