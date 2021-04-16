@@ -21,6 +21,11 @@ type ApiCtx struct {
 	Filetree *filetree.FileTreeCtx
 }
 
+type DocumentOptions struct {
+	Landscape   bool
+	CurrentPage int
+}
+
 // CreateApiCtx initializes an instance of ApiCtx
 func CreateApiCtx(http *transport.HttpClientCtx) (*ApiCtx, error) {
 	fileTree, err := DocumentsFileTree(http)
@@ -143,7 +148,7 @@ func (ctx *ApiCtx) CreateDir(parentId, name string) (model.Document, error) {
 		return model.Document{}, err
 	}
 
-	metaDoc := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DirectoryType, parentId, name)
+	metaDoc := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DirectoryType, parentId, name, 0)
 
 	err = ctx.Http.Put(transport.UserBearer, updateStatus, metaDoc, nil)
 
@@ -170,6 +175,22 @@ func (ctx *ApiCtx) DeleteEntry(node *model.Node) error {
 
 	if err != nil {
 		log.Error.Println("failed to remove entry", err)
+		return err
+	}
+
+	return nil
+}
+
+// SetEntry updates only the metadata
+// - node the node
+func (ctx *ApiCtx) SetEntry(node *model.Node) error {
+	metaDoc := node.Document.ToMetaDocument()
+	metaDoc.Version = metaDoc.Version + 1
+
+	err := ctx.Http.Put(transport.UserBearer, updateStatus, metaDoc, nil)
+
+	if err != nil {
+		log.Error.Println("failed to update entry", err)
 		return err
 	}
 
@@ -203,7 +224,7 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 }
 
 // UploadDocument uploads a local document given by sourceDocPath under the parentId directory
-func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model.Document, error) {
+func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, options DocumentOptions) (*model.Document, error) {
 	name, ext := util.DocPathToName(sourceDocPath)
 
 	if name == "" {
@@ -218,7 +239,7 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 	var err error
 
 	//restore document
-	if ext == "zip" {
+	if ext == util.ZipFile {
 		id, err = archive.GetIdFromZip(sourceDocPath)
 		if err != nil {
 			return nil, err
@@ -238,7 +259,7 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 		return nil, errors.New("upload request returned success := false")
 	}
 
-	zipPath, err := archive.CreateZipDocument(uploadRsp.ID, sourceDocPath)
+	zipPath, err := archive.CreateZipDocument(uploadRsp.ID, sourceDocPath, options.Landscape)
 
 	if err != nil {
 		log.Error.Println("failed to create zip doc", err)
@@ -260,7 +281,7 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string) (*model
 		return nil, err
 	}
 
-	metaDoc := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DocumentType, parentId, name)
+	metaDoc := model.CreateUploadDocumentMeta(uploadRsp.ID, model.DocumentType, parentId, name, options.CurrentPage)
 
 	err = ctx.Http.Put(transport.UserBearer, updateStatus, metaDoc, nil)
 

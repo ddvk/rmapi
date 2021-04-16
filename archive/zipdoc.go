@@ -61,11 +61,11 @@ func GetIdFromZip(srcPath string) (id string, err error) {
 	return
 }
 
-func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
+func CreateZipDocument(id, srcPath string, landscape bool) (zipPath string, err error) {
 	_, ext := util.DocPathToName(srcPath)
 	fileType := ext
 
-	if ext == "zip" {
+	if ext == util.ZipFile {
 		zipPath = srcPath
 		return
 	}
@@ -93,7 +93,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 	var documentPath string
 
 	pages := make([]string, 0)
-	if ext == "rm" {
+	if ext == util.NotebookFile {
 		var pageUUID uuid.UUID
 
 		pageUUID, err = uuid.NewV4()
@@ -101,7 +101,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 			return
 		}
 		pageID := pageUUID.String()
-		documentPath = fmt.Sprintf("%s/%s.rm", id, pageID)
+		documentPath = fmt.Sprintf("%s/%s.%s", id, pageID, util.NotebookFile)
 		fileType = "notebook"
 		pages = append(pages, pageID)
 	} else {
@@ -117,7 +117,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 
 	//try to create a thumbnail
 	//due to a bug somewhere in unipdf the generation is opt-in
-	if ext == "pdf" && os.Getenv("RMAPI_THUMBNAILS") != "" {
+	if ext == util.PdfFile && os.Getenv("RMAPI_THUMBNAILS") != "" {
 		thumbnail, err := makeThumbnail(doc)
 		if err != nil {
 			log.Error.Println("cannot generate thumbnail", err)
@@ -146,7 +146,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 		return
 	}
 
-	c, err := createZipContent(fileType, pages)
+	c, err := createZipContent(fileType, pages, landscape)
 	if err != nil {
 		return
 	}
@@ -181,7 +181,11 @@ func CreateZipDirectory(id string) (string, error) {
 	return tmp.Name(), nil
 }
 
-func createZipContent(ext string, pageIDs []string) (string, error) {
+func createZipContent(ext string, pageIDs []string, landscape bool) (string, error) {
+	orientation := "portrait"
+	if landscape {
+		orientation = "landscape"
+	}
 	c := Content{
 		DummyDocument: false,
 		ExtraMetadata: ExtraMetadata{
@@ -206,7 +210,8 @@ func createZipContent(ext string, pageIDs []string) (string, error) {
 			M32: 0,
 			M33: 1,
 		},
-		Pages: pageIDs,
+		Pages:       pageIDs,
+		Orientation: orientation,
 	}
 
 	cstring, err := json.Marshal(c)

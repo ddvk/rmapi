@@ -10,6 +10,7 @@ import (
 	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/encoding/rm"
 	"github.com/juruen/rmapi/log"
+	"github.com/juruen/rmapi/util"
 	"github.com/unidoc/unipdf/v3/annotator"
 	"github.com/unidoc/unipdf/v3/contentstream"
 	"github.com/unidoc/unipdf/v3/contentstream/draw"
@@ -66,7 +67,7 @@ func (p *PdfGenerator) Generate() error {
 		return err
 	}
 
-	if zip.Content.FileType == "epub" {
+	if zip.Content.FileType == util.PdfFile {
 		return errors.New("only pdf and notebooks supported")
 	}
 

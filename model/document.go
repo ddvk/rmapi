@@ -34,6 +34,7 @@ type MetadataDocument struct {
 	Type           string
 	Version        int
 	ModifiedClient string
+	CurrentPage    int
 }
 
 type DeleteDocument struct {
@@ -90,7 +91,7 @@ func CreateUploadDocumentRequest(id string, entryType string) UploadDocumentRequ
 	}
 }
 
-func CreateUploadDocumentMeta(id string, entryType, parent, name string) MetadataDocument {
+func CreateUploadDocumentMeta(id string, entryType, parent, name string, currentPage int) MetadataDocument {
 
 	return MetadataDocument{
 		ID:             id,
@@ -99,6 +100,7 @@ func CreateUploadDocumentMeta(id string, entryType, parent, name string) Metadat
 		Type:           entryType,
 		Version:        1,
 		ModifiedClient: time.Now().UTC().Format(time.RFC3339Nano),
+		CurrentPage:    currentPage,
 	}
 }
 
@@ -110,6 +112,7 @@ func (meta MetadataDocument) ToDocument() Document {
 		Type:           meta.Type,
 		Version:        1,
 		ModifiedClient: meta.ModifiedClient,
+		CurrentPage:    meta.CurrentPage,
 	}
 }
 
@@ -121,6 +124,7 @@ func (doc Document) ToMetaDocument() MetadataDocument {
 		Type:           doc.Type,
 		Version:        doc.Version,
 		ModifiedClient: time.Now().UTC().Format(time.RFC3339Nano),
+		CurrentPage:    doc.CurrentPage,
 	}
 }
 

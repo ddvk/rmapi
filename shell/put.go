@@ -2,9 +2,11 @@ package shell
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 
 	"github.com/abiosoft/ishell"
+	"github.com/juruen/rmapi/api"
 	"github.com/juruen/rmapi/util"
 )
 
@@ -14,20 +16,32 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Help:      "copy a local document to cloud",
 		Completer: createFsEntryCompleter(),
 		Func: func(c *ishell.Context) {
-			if len(c.Args) == 0 {
+			flagSet := flag.NewFlagSet("put", flag.ContinueOnError)
+			landscape := flagSet.Bool("l", false, "landscape orientation")
+			currentPage := flagSet.Int("c", 0, "current page")
+
+			if err := flagSet.Parse(c.Args); err != nil {
+				if err != flag.ErrHelp {
+					c.Err(err)
+				}
+				return
+			}
+
+			argRest := flagSet.Args()
+			if len(argRest) == 0 {
 				c.Err(errors.New("missing source file"))
 				return
 			}
 
-			srcName := c.Args[0]
+			srcName := argRest[0]
 
 			docName, _ := util.DocPathToName(srcName)
 
 			node := ctx.node
 			var err error
 
-			if len(c.Args) == 2 {
-				node, err = ctx.api.Filetree.NodeByPath(c.Args[1], ctx.node)
+			if len(argRest) == 2 {
+				node, err = ctx.api.Filetree.NodeByPath(argRest[1], ctx.node)
 
 				if err != nil || node.IsFile() {
 					c.Err(errors.New("directory doesn't exist"))
@@ -45,7 +59,11 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			dstDir := node.Id()
 
-			document, err := ctx.api.UploadDocument(dstDir, srcName)
+			options := api.DocumentOptions{
+				Landscape:   *landscape,
+				CurrentPage: *currentPage,
+			}
+			document, err := ctx.api.UploadDocument(dstDir, srcName, options)
 
 			if err != nil {
 				c.Err(fmt.Errorf("Failed to upload file [%s] %v", srcName, err))
