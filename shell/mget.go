@@ -7,12 +7,42 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"os/exec"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/model"
 )
+
+func execute(command, filename string) (string, error) {
+	parts := strings.Split(command, " ")
+	i := 0
+	for _, entry := range parts {
+		if strings.Trim(entry, " ") == "" {
+			continue
+		}
+
+		if entry == "{}" {
+			entry = filename
+		}
+		parts[i] = entry
+		i++
+
+	}
+	parts = parts[0:i]
+
+	if len(parts) < 1 {
+		return "", errors.New("empty command")
+	}
+
+	cmd := parts[0]
+
+	out, err := exec.Command(cmd, parts[1:]...).CombinedOutput()
+	return string(out), err
+}
 
 func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
@@ -24,6 +54,7 @@ func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 			incremental := flagSet.Bool("i", false, "incremental")
 			outputDir := flagSet.String("o", ".", "output folder")
 			removeDeleted := flagSet.Bool("d", false, "remove deleted/moved")
+			exec := flagSet.String("exec", "", "execute a program for each file")
 
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
@@ -104,10 +135,18 @@ func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 						if err != nil {
 							c.Err(fmt.Errorf("cant set lastModified for %s", dst))
 						}
+
+						if *exec != "" {
+							output, err := execute(*exec, dst)
+							if err != nil {
+								c.Println(err, output)
+								c.Err(err)
+							}
+						}
 						return filetree.ContinueVisiting
 					}
 
-					c.Err(fmt.Errorf("Failed to download file %s", currentNode.Name()))
+					c.Err(fmt.Errorf("failed to download file %s", currentNode.Name()))
 
 					return filetree.ContinueVisiting
 				},
