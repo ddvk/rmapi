@@ -20,17 +20,20 @@ import (
 func execute(command, filename string) (string, error) {
 	parts := strings.Split(command, " ")
 	i := 0
+	hasPlaceholder := false
+	//remove empty and replace placeholder
 	for _, entry := range parts {
 		if strings.Trim(entry, " ") == "" {
 			continue
 		}
 
 		if entry == "{}" {
+			hasPlaceholder = true
 			entry = filename
 		}
+
 		parts[i] = entry
 		i++
-
 	}
 	parts = parts[0:i]
 
@@ -38,9 +41,11 @@ func execute(command, filename string) (string, error) {
 		return "", errors.New("empty command")
 	}
 
-	cmd := parts[0]
+	if !hasPlaceholder {
+		parts = append(parts, filename)
+	}
 
-	out, err := exec.Command(cmd, parts[1:]...).CombinedOutput()
+	out, err := exec.Command(parts[0], parts[1:]...).CombinedOutput()
 	return string(out), err
 }
 
