@@ -27,9 +27,13 @@ func execute(command, filename string) (string, error) {
 			continue
 		}
 
-		if entry == "{}" {
+		switch entry {
+		case "{}":
 			hasPlaceholder = true
 			entry = filename
+		case "{/}":
+			hasPlaceholder = true
+			entry = filepath.Dir(filename)
 		}
 
 		parts[i] = entry
@@ -59,7 +63,7 @@ func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 			incremental := flagSet.Bool("i", false, "incremental")
 			outputDir := flagSet.String("o", ".", "output folder")
 			removeDeleted := flagSet.Bool("d", false, "remove deleted/moved")
-			exec := flagSet.String("exec", "", "execute a program for each file")
+			exec := flagSet.String("exec", "", "execute a program for each file, you can use {} as a filename placeholder")
 
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
