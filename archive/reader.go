@@ -35,10 +35,11 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 	//uploading and then downloading a file results in 0 pages
 	if z.Content.PageCount <= 0 {
 		log.Warning.Printf("PageCount is 0")
-		return nil
+		z.Pages = make([]Page, 0)
+	} else {
+		z.Pages = make([]Page, z.Content.PageCount)
 	}
 	// instantiate the slice of pages
-	z.Pages = make([]Page, z.Content.PageCount)
 
 	if err := z.readMetadata(zr); err != nil {
 		return err

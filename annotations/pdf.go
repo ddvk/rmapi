@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 
 	"os"
 
@@ -76,6 +77,9 @@ func (p *PdfGenerator) Generate() error {
 	}
 
 	if len(zip.Pages) == 0 {
+		if p.options.AllPages {
+			return ioutil.WriteFile(p.outputFilePath, zip.Payload, 0600)
+		}
 		return errors.New("the document has no pages")
 	}
 
