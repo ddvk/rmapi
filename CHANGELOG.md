@@ -1,3 +1,24 @@
+## rmapi 0.0.14 (May 03, 2021)
+
+* Don't dump request/responses when tracing disabled
+  to fix OOM on low end devices (@ddvk)
+
+* Fix small typo (Jasdev Singh)
+
+* Show entry's type in find command output (@ddvk)
+
+* Remove device token if unable to authenticate (@ddvk)
+
+* Upload .rm page files (@ddvk)
+
+* Fix panic in mv command (Casey Marshall)
+
+* Update install instructions with config folder command (@Caleb)
+
+* Update doc to correct OTC URL (Hwee-Boon Yar)
+
+* Fix BrushSize parsing (@jgoel)
+
 ## rmapi 0.0.13 (December 08, 2020)
 
 * Copy table contents when creating annotations (@ddvk)
