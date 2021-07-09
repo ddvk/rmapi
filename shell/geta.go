@@ -4,9 +4,40 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/annotations"
+	"github.com/juruen/rmapi/archive"
 )
+
+func export(zipName, docName string) error {
+	file, err := os.Open(zipName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	fi, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	zip := archive.NewZip()
+	// read file into note
+	err = zip.Read(file, fi.Size())
+	if err != nil {
+		return err
+	}
+
+	ft := zip.Content.FileType
+	if zip.Payload != nil {
+		outputName := docName + "." + ft
+		return ioutil.WriteFile(outputName, zip.Payload, 0666)
+	}
+	return nil
+}
 
 func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
@@ -19,6 +50,7 @@ func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 			addPageNumbers := flagSet.Bool("p", false, "add page numbers")
 			allPages := flagSet.Bool("a", false, "all pages")
 			annotationsOnly := flagSet.Bool("n", false, "annotations only")
+			payloadOnly := flagSet.Bool("doc", false, "orignal doc only")
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
 					c.Err(err)
@@ -47,6 +79,13 @@ func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			if err != nil {
 				c.Err(errors.New(fmt.Sprintf("Failed to download file %s with %s", srcName, err.Error())))
+				return
+			}
+			if *payloadOnly {
+				err = export(zipName, node.Name())
+				if err != nil {
+					c.Err(errors.New(fmt.Sprintf("Failed to get paylout %s with %s", srcName, err.Error())))
+				}
 				return
 			}
 
