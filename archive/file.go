@@ -13,6 +13,7 @@ type Zip struct {
 	Pages   []Page
 	Payload []byte
 	UUID    string
+	pageMap map[string]int
 }
 
 // NewZip creates a File with sane defaults.
@@ -72,6 +73,8 @@ type Page struct {
 	Thumbnail []byte
 	// Pagedata contains the name of the selected background template
 	Pagedata string
+
+	Highlights *HighlihgtsContainer
 }
 
 // Metadata represents the structure of a .metadata json file associated to a page.
@@ -134,4 +137,21 @@ type Transform struct {
 	M31 float32 `json:"m31"`
 	M32 float32 `json:"m32"`
 	M33 float32 `json:"m33"`
+}
+
+// Highlights
+type HighlihgtsContainer struct {
+	Highlights [][]Highlights `json:"highlights"`
+}
+
+type Highlights struct {
+	Length int64 `json:"length"`
+	Rects  []struct {
+		Height float64 `json:"height"`
+		Width  float64 `json:"width"`
+		X      float64 `json:"x"`
+		Y      float64 `json:"y"`
+	} `json:"rects"`
+	Start int64  `json:"start"`
+	Text  string `json:"text"`
 }

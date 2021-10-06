@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juruen/rmapi/encoding/rm"
-	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/util"
 )
 
@@ -33,16 +32,13 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 		return err
 	}
 
-	//uploading and then downloading a file results in 0 pages
-	if z.Content.PageCount <= 0 {
-		log.Warning.Printf("PageCount is 0")
-		return nil
-	}
-	// instantiate the slice of pages
-	z.Pages = make([]Page, z.Content.PageCount)
-
 	if err := z.readMetadata(zr); err != nil {
 		return err
+	}
+
+	//uploading and then downloading a file results in 0 pages
+	if len(z.Pages) == 0 {
+		return nil
 	}
 
 	if err := z.readPagedata(zr); err != nil {
@@ -50,6 +46,10 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 	}
 
 	if err := z.readData(zr); err != nil {
+		return err
+	}
+
+	if err := z.readHighlights(zr); err != nil {
 		return err
 	}
 
@@ -89,6 +89,17 @@ func (z *Zip) readContent(zr *zip.Reader) error {
 	p := contentFile.FileInfo().Name()
 	id, _ := util.DocPathToName(p)
 	z.UUID = id
+
+	// instantiate the slice of pages
+	pagesLength := len(z.Content.Pages)
+	if pagesLength > 0 {
+		z.Pages = make([]Page, pagesLength)
+		z.pageMap = make(map[string]int)
+		for index, pageUUID := range z.Content.Pages {
+			z.pageMap[pageUUID] = index
+		}
+	}
+
 	return nil
 }
 
@@ -162,10 +173,13 @@ func (z *Zip) readData(zr *zip.Reader) error {
 
 	for _, file := range files {
 		name, _ := splitExt(file.FileInfo().Name())
+		idx, ok := z.pageMap[name]
 
-		idx, err := strconv.Atoi(name)
-		if err != nil {
-			return errors.New("error in .rm filename")
+		if !ok {
+			idx, err = strconv.Atoi(name)
+			if err != nil {
+				return errors.New("error in metadata .rm filename, not a numnber: " + name)
+			}
 		}
 
 		if len(z.Pages) <= idx {
@@ -189,6 +203,38 @@ func (z *Zip) readData(zr *zip.Reader) error {
 		}
 	}
 
+	return nil
+}
+
+func (z *Zip) readHighlights(zr *zip.Reader) error {
+	files, err := zipDirExtFinder(zr, z.UUID+".highlights", ".json")
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		name, _ := splitExt(file.FileInfo().Name())
+		r, err := file.Open()
+		if err != nil {
+			return err
+		}
+		index, ok := z.pageMap[name]
+		if !ok {
+			continue
+		}
+
+		bytes, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+
+		var highlights HighlihgtsContainer
+		err = json.Unmarshal(bytes, &highlights)
+		if err != nil {
+			return err
+		}
+		z.Pages[index].Highlights = &highlights
+	}
 	return nil
 }
 
@@ -233,12 +279,14 @@ func (z *Zip) readMetadata(zr *zip.Reader) error {
 	}
 
 	for _, file := range files {
-		name, _ := splitExt(file.FileInfo().Name())
+		name := strings.TrimSuffix(file.FileInfo().Name(), "-metadata.json")
 
-		// name is 0-metadata.json
-		idx, err := strconv.Atoi(strings.Split(name, "-")[0])
-		if err != nil {
-			return errors.New("error in metadata .json filename")
+		idx, ok := z.pageMap[name]
+		if !ok {
+			idx, err = strconv.Atoi(name)
+			if err != nil {
+				return errors.New("error in metadata .json filename, not a numnber: " + name)
+			}
 		}
 
 		if len(z.Pages) <= idx {
@@ -280,6 +328,24 @@ func zipExtFinder(zr *zip.Reader, ext string) ([]*zip.File, error) {
 		if strings.HasSuffix(parentFolderName, ".highlights") {
 			continue
 		}
+		filename := file.FileInfo().Name()
+		if _, e := splitExt(filename); e == ext {
+			files = append(files, file)
+		}
+	}
+
+	return files, nil
+}
+
+func zipDirExtFinder(zr *zip.Reader, folder, ext string) ([]*zip.File, error) {
+	var files []*zip.File
+
+	for _, file := range zr.File {
+		parentFolderName := path.Dir(file.FileHeader.Name)
+		if !strings.HasPrefix(parentFolderName, folder) {
+			continue
+		}
+
 		filename := file.FileInfo().Name()
 		if _, e := splitExt(filename); e == ext {
 			files = append(files, file)
