@@ -2,6 +2,8 @@ package model
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -54,4 +56,25 @@ func (node *Node) FindByName(name string) (*Node, error) {
 		}
 	}
 	return nil, errors.New("entry doesn't exist")
+}
+
+func (node *Node) FindByPattern(name string) ([]*Node, error) {
+	result := make([]*Node, 0)
+	lowerName := strings.ToLower(name)
+	emptyPattern := name == ""
+	for _, n := range node.Children {
+		if emptyPattern {
+			result = append(result, n)
+			continue
+		}
+
+		matched, err := filepath.Match(lowerName, strings.ToLower(n.Name()))
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			result = append(result, n)
+		}
+	}
+	return result, nil
 }

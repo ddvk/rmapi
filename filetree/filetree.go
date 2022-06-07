@@ -108,6 +108,60 @@ func (ctx *FileTreeCtx) MoveNode(src, dst *model.Node) {
 	}
 }
 
+func (ctx *FileTreeCtx) NodesByPath(path string, current *model.Node) (result []*model.Node, err error) {
+	if current == nil {
+		current = ctx.Root()
+	}
+
+	result = []*model.Node{current}
+
+	entries := util.SplitPath(path)
+
+	if len(entries) == 0 {
+		return
+	}
+
+	i := 0
+	if entries[i] == "" {
+		current = ctx.Root()
+		i++
+	}
+
+	for i < len(entries) {
+		last := i == len(entries)-1
+		if last {
+			result, err = current.FindByPattern(entries[i])
+			return
+		}
+		//if last one
+		if entries[i] == "" || entries[i] == "." {
+			i++
+			continue
+		}
+
+		if entries[i] == ".." {
+			if current.Parent == nil {
+				current = ctx.Root()
+			} else {
+				current = current.Parent
+			}
+
+			i++
+			continue
+		}
+
+		current, err = current.FindByName(entries[i])
+
+		if err != nil {
+			return nil, err
+		}
+
+		i++
+	}
+
+	result = []*model.Node{current}
+	return
+}
 func (ctx *FileTreeCtx) NodeByPath(path string, current *model.Node) (*model.Node, error) {
 	if current == nil {
 		current = ctx.Root()

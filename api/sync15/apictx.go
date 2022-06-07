@@ -294,10 +294,11 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 		return nil, err
 	}
 
-	err = ctx.SyncComplete()
-	if err != nil {
-		return nil, err
-	}
+	// suppress
+	// err = ctx.SyncComplete()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	d, err := ctx.hashTree.FindDoc(src.Document.ID)
 	if err != nil {

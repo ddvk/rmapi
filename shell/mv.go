@@ -21,10 +21,15 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			src := c.Args[0]
 
-			srcNode, err := ctx.api.Filetree().NodeByPath(src, ctx.node)
+			srcNodes, err := ctx.api.Filetree().NodesByPath(src, ctx.node)
 
 			if err != nil {
-				c.Err(errors.New("source entry doesn't exist"))
+				c.Err(err)
+				return
+			}
+
+			if len(srcNodes) == 0 {
+				c.Err(errors.New("no match found"))
 				return
 			}
 
@@ -39,16 +44,29 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			// We are moving the node to antoher directory
 			if dstNode != nil && dstNode.IsDirectory() {
-				n, err := ctx.api.MoveEntry(srcNode, dstNode, srcNode.Name())
+				for _, node := range srcNodes {
+					n, err := ctx.api.MoveEntry(node, dstNode, node.Name())
 
-				if err != nil {
-					c.Err(errors.New(fmt.Sprint("failed to move entry", err)))
-					return
+					if err != nil {
+						c.Err(errors.New(fmt.Sprint("failed to move entry", err)))
+						return
+					}
+
+					ctx.api.Filetree().MoveNode(node, n)
 				}
-
-				ctx.api.Filetree().MoveNode(srcNode, n)
+				err = ctx.api.SyncComplete()
+				if err != nil {
+					c.Err(errors.New("cannot notify"))
+				}
 				return
 			}
+
+			if len(srcNodes) > 1 {
+				c.Err(errors.New("cannot rename multiple nodes"))
+				return
+			}
+
+			srcNode := srcNodes[0]
 
 			// We are renaming the node
 			parentDir := path.Dir(dst)
@@ -66,6 +84,10 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			if err != nil {
 				c.Err(errors.New(fmt.Sprint("failed to move entry", err)))
 				return
+			}
+			err = ctx.api.SyncComplete()
+			if err != nil {
+				c.Err(errors.New("cannot notify"))
 			}
 
 			ctx.api.Filetree().MoveNode(srcNode, n)
