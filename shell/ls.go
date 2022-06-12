@@ -12,6 +12,8 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Help:      "list directory",
 		Completer: createEntryCompleter(ctx),
 		Func: func(c *ishell.Context) {
+			ctx.init()
+
 			node := ctx.node
 
 			if len(c.Args) == 1 {

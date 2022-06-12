@@ -14,6 +14,17 @@ type ShellCtxt struct {
 	api            api.ApiCtx
 	path           string
 	useHiddenFiles bool
+	ctxCreator     func() api.ApiCtx
+}
+
+func (ctx *ShellCtxt) init() error {
+	if ctx.api == nil {
+		apiCtx := ctx.ctxCreator()
+		ctx.api = apiCtx
+		ctx.node = apiCtx.Filetree().Root()
+		ctx.path = apiCtx.Filetree().Root().Name()
+	}
+	return nil
 }
 
 func (ctx *ShellCtxt) prompt() string {
@@ -40,13 +51,15 @@ func useHiddenFiles() bool {
 	return val != "0"
 }
 
-func RunShell(apiCtx api.ApiCtx, args []string) error {
+func RunShell(apiCtx func() api.ApiCtx, args []string) error {
 	shell := ishell.New()
 	ctx := &ShellCtxt{
-		node:           apiCtx.Filetree().Root(),
-		api:            apiCtx,
-		path:           apiCtx.Filetree().Root().Name(),
-		useHiddenFiles: useHiddenFiles()}
+		// node:           apiCtx.Filetree().Root(),
+		// api:            apiCtx,
+		// path:           apiCtx.Filetree().Root().Name(),
+		useHiddenFiles: useHiddenFiles(),
+		ctxCreator:     apiCtx,
+	}
 
 	shell.SetPrompt(ctx.prompt())
 
