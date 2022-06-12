@@ -42,7 +42,7 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			// We are moving the node to antoher directory
+			// We are moving the node to another directory
 			if dstNode != nil && dstNode.IsDirectory() {
 				for _, node := range srcNodes {
 					n, err := ctx.api.MoveEntry(node, dstNode, node.Name())
