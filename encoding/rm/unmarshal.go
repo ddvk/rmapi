@@ -70,6 +70,8 @@ func (r *reader) checkHeader() error {
 		r.version = V5
 	case HeaderV3:
 		r.version = V3
+	case HeaderV6:
+		r.version = V6
 	default:
 		return fmt.Errorf("Unknown header")
 	}
