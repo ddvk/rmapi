@@ -1,18 +1,67 @@
 package shell
 
 import (
-	"errors"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/model"
+	flag "github.com/ogier/pflag"
 )
 
-func displayNodes(c *ishell.Context, e *model.Node) {
-	eType := "d"
-	if e.IsFile() {
-		eType = "f"
+func sortNodes(in []*model.Node, options DisplayOptions) []*model.Node {
+	sort.SliceStable(in, func(i, j int) bool {
+		if options.DirFirst {
+			if in[i].IsDirectory() && in[j].IsFile() {
+				return true
+			}
+			if in[j].IsDirectory() && in[i].IsFile() {
+				return false
+			}
+		}
+
+		var left string
+		var right string
+		if options.ByTime {
+			left = in[i].Document.ModifiedClient
+			right = in[j].Document.ModifiedClient
+		} else {
+			left = strings.ToLower(in[i].Name())
+			right = strings.ToLower(in[j].Name())
+		}
+
+		if options.Reverse {
+			return left > right
+		}
+		return left < right
+	})
+	return in
+}
+
+func displayNode(c *ishell.Context, e *model.Node, d DisplayOptions) {
+	if !d.Compact {
+		eType := "d"
+		if e.IsFile() {
+			eType = "f"
+		}
+		c.Printf("[%s]\t%s\n", eType, e.Name())
+		return
 	}
-	c.Printf("[%s]\t%s\n", eType, e.Name())
+
+	isFolder := ""
+	if e.IsDirectory() {
+		isFolder = "/"
+	}
+	t, _ := e.LastModified()
+	c.Printf("%s %s%s\n", t.Local().Format(time.RFC3339), e.Name(), isFolder)
+}
+
+type DisplayOptions struct {
+	Compact  bool
+	Reverse  bool
+	DirFirst bool
+	ByTime   bool
 }
 
 func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
@@ -21,38 +70,38 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Help:      "list directory",
 		Completer: createEntryCompleter(ctx),
 		Func: func(c *ishell.Context) {
-			node := ctx.node
-
-			//node path
-			if len(c.Args) == 1 {
-				target := c.Args[0]
-
-				nodes, err := ctx.api.Filetree().NodesByPath(target, ctx.node)
-
-				if err != nil {
+			flagSet := flag.NewFlagSet("ls", flag.ContinueOnError)
+			d := DisplayOptions{}
+			flagSet.BoolVarP(&d.Compact, "long", "l", false, "long")
+			flagSet.BoolVarP(&d.Reverse, "reverse", "r", false, "reverse")
+			flagSet.BoolVarP(&d.DirFirst, "dirfirst", "d", false, "dirfirst")
+			flagSet.BoolVarP(&d.ByTime, "time", "t", false, "dirfirst")
+			if err := flagSet.Parse(c.Args); err != nil {
+				if err != flag.ErrHelp {
 					c.Err(err)
-				}
-
-				// if len(nodes) == 1 && nodes[0].IsDirectory() {
-				// 	for _, e := range nodes[0].Children {
-				// 		displayNodes(c, e)
-				// 	}
-				// 	return
-				// }
-				if len(nodes) == 0 {
-					c.Err(errors.New("directory doesn't exist"))
-					return
-				}
-
-				for _, e := range nodes {
-					displayNodes(c, e)
 				}
 				return
 			}
+			argRest := flagSet.Args()
 
-			//current node
-			for _, e := range node.Children {
-				displayNodes(c, e)
+			var nodes []*model.Node
+			if len(argRest) < 1 {
+				nodes = ctx.node.Nodes()
+			} else {
+				var err error
+				target := argRest[0]
+				nodes, err = ctx.api.Filetree().NodesByPath(target, ctx.node)
+
+				if err != nil {
+					c.Err(err)
+					return
+				}
+			}
+
+			sorted := sortNodes(nodes, d)
+
+			for _, e := range sorted {
+				displayNode(c, e, d)
 			}
 		},
 	}

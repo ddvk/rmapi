@@ -108,49 +108,51 @@ func (ctx *FileTreeCtx) MoveNode(src, dst *model.Node) {
 	}
 }
 
-func (ctx *FileTreeCtx) NodesByPath(path string, current *model.Node) (result []*model.Node, err error) {
-	if current == nil {
-		current = ctx.Root()
+func (ctx *FileTreeCtx) NodesByPath(path string, currentNode *model.Node) (result []*model.Node, err error) {
+	if currentNode == nil {
+		currentNode = ctx.Root()
 	}
 
-	result = []*model.Node{current}
+	result = []*model.Node{currentNode}
 
 	entries := util.SplitPath(path)
+	length := len(entries)
 
-	if len(entries) == 0 {
+	if length == 0 {
 		return
 	}
 
 	i := 0
 	if entries[i] == "" {
-		current = ctx.Root()
+		currentNode = ctx.Root()
 		i++
 	}
 
-	for i < len(entries) {
-		last := i == len(entries)-1
-		if last {
-			result, err = current.FindByPattern(entries[i])
-			return
-		}
-		//if last one
-		if entries[i] == "" || entries[i] == "." {
+	for i < length {
+		isLast := i == length-1
+		entry := entries[i]
+
+		if entry == "" || entry == "." {
 			i++
 			continue
 		}
 
-		if entries[i] == ".." {
-			if current.Parent == nil {
-				current = ctx.Root()
+		if entry == ".." {
+			if currentNode.Parent == nil {
+				currentNode = ctx.Root()
 			} else {
-				current = current.Parent
+				currentNode = currentNode.Parent
 			}
 
 			i++
 			continue
 		}
 
-		current, err = current.FindByName(entries[i])
+		if isLast {
+			result, err = currentNode.FindByPattern(entry)
+			return
+		}
+		currentNode, err = currentNode.FindByName(entry)
 
 		if err != nil {
 			return nil, err
@@ -159,7 +161,7 @@ func (ctx *FileTreeCtx) NodesByPath(path string, current *model.Node) (result []
 		i++
 	}
 
-	result = []*model.Node{current}
+	result = currentNode.Nodes()
 	return
 }
 func (ctx *FileTreeCtx) NodeByPath(path string, current *model.Node) (*model.Node, error) {
