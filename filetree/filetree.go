@@ -108,6 +108,89 @@ func (ctx *FileTreeCtx) MoveNode(src, dst *model.Node) {
 	}
 }
 
+// NodesByPath returns multiple nodes that match a pattern
+//
+// # Patterns
+// dirname		only the directory, err if does not exist
+// dirname/		all children (unless foldersOnly = true)
+// dirname*		all matching directories (err if no match)
+// dirname/*	all children
+// . 			all children of current node
+// .. 			all children of parent
+// /x/y 		from root node
+func (ctx *FileTreeCtx) NodesByPath(path string, currentNode *model.Node, ignoreTrailingSlash bool) ([]*model.Node, error) {
+	if currentNode == nil {
+		currentNode = ctx.Root()
+	}
+
+	entries := util.SplitPath(path)
+	length := len(entries)
+
+	if length == 0 {
+		return []*model.Node{currentNode}, nil
+	}
+
+	i := 0
+	if entries[i] == "" {
+		currentNode = ctx.Root()
+		i++
+	}
+
+	var err error
+	var result []*model.Node
+
+	for i < length {
+		isLast := i == length-1
+		entry := entries[i]
+
+		if entry == "" || entry == "." {
+			i++
+			continue
+		}
+
+		if entry == ".." {
+			if currentNode.Parent == nil {
+				currentNode = ctx.Root()
+			} else {
+				currentNode = currentNode.Parent
+			}
+
+			i++
+			continue
+		}
+
+		if isLast {
+			result, err = currentNode.FindByPattern(entry)
+		} else {
+			currentNode, err = currentNode.FindByName(entry)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		i++
+	}
+	switch len(result) {
+	case 0:
+		//handles dir/ in move
+		if currentNode.IsDirectory() && ignoreTrailingSlash {
+			return currentNode.Nodes(), nil
+		}
+
+		return []*model.Node{currentNode}, nil
+	case 1:
+		//handles: dir/ , dir
+		if result[0].IsDirectory() && ignoreTrailingSlash {
+			return result[0].Nodes(), nil
+		}
+		//1 or more results
+		fallthrough
+	default:
+		return result, nil
+	}
+
+}
 func (ctx *FileTreeCtx) NodeByPath(path string, current *model.Node) (*model.Node, error) {
 	if current == nil {
 		current = ctx.Root()
