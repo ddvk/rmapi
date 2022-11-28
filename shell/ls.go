@@ -40,7 +40,7 @@ func sortNodes(in []*model.Node, options DisplayOptions) []*model.Node {
 }
 
 func displayNode(c *ishell.Context, e *model.Node, d DisplayOptions) {
-	if !d.Long {
+	if !d.Compact {
 		eType := "d"
 		if e.IsFile() {
 			eType = "f"
@@ -53,12 +53,17 @@ func displayNode(c *ishell.Context, e *model.Node, d DisplayOptions) {
 	if e.IsDirectory() {
 		isFolder = "/"
 	}
-	t, _ := e.LastModified()
-	c.Printf("%s %s%s\n", t.Local().Format(time.RFC3339), e.Name(), isFolder)
+	if d.Long {
+		t, _ := e.LastModified()
+		c.Printf("%s %s%s\n", t.Local().Format(time.RFC3339), e.Name(), isFolder)
+		return
+	}
+	c.Printf("%s%s\n", e.Name(), isFolder)
 }
 
 type DisplayOptions struct {
 	Long     bool
+	Compact  bool
 	Reverse  bool
 	DirFirst bool
 	ByTime   bool
@@ -72,9 +77,10 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Func: func(c *ishell.Context) {
 			flagSet := flag.NewFlagSet("ls", flag.ContinueOnError)
 			d := DisplayOptions{}
+			flagSet.BoolVarP(&d.Compact, "compact", "c", true, "long format")
 			flagSet.BoolVarP(&d.Long, "long", "l", false, "long format")
 			flagSet.BoolVarP(&d.Reverse, "reverse", "r", false, "reverse sort")
-			flagSet.BoolVarP(&d.DirFirst, "dirfirst", "d", false, "group directories first")
+			flagSet.BoolVarP(&d.DirFirst, "dirfirst", "d", true, "group directories first")
 			flagSet.BoolVarP(&d.ByTime, "bytime", "t", false, "sorty by time")
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
