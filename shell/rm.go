@@ -29,7 +29,7 @@ func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 
 			for _, target := range argRest {
-				nodes, err := ctx.api.Filetree().NodesByPath(target, ctx.node, true)
+				nodes, err := ctx.api.Filetree().NodesByPath(target, ctx.node, false)
 
 				if err != nil {
 					c.Err(err)
