@@ -226,8 +226,8 @@ func Sync(b *BlobStorage, tree *HashTree, operation func(t *HashTree) error) err
 }
 
 // DeleteEntry removes an entry: either an empty directory or a file
-func (ctx *ApiCtx) DeleteEntry(node *model.Node) error {
-	if node.IsDirectory() && len(node.Children) > 0 {
+func (ctx *ApiCtx) DeleteEntry(node *model.Node, recursive, notify bool) error {
+	if node.IsDirectory() && len(node.Children) > 0 && !recursive {
 		return errors.New("directory is not empty")
 	}
 
@@ -238,7 +238,10 @@ func (ctx *ApiCtx) DeleteEntry(node *model.Node) error {
 		return err
 	}
 
-	return ctx.SyncComplete()
+	if notify {
+		return ctx.SyncComplete()
+	}
+	return nil
 }
 
 // MoveEntry moves an entry (either a directory or a file)
@@ -293,12 +296,6 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 	if err != nil {
 		return nil, err
 	}
-
-	// suppress
-	// err = ctx.SyncComplete()
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	d, err := ctx.hashTree.FindDoc(src.Document.ID)
 	if err != nil {

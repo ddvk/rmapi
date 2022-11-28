@@ -90,7 +90,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 			} else {
 				var err error
 				target := argRest[0]
-				nodes, err = ctx.api.Filetree().NodesByPath(target, ctx.node)
+				nodes, err = ctx.api.Filetree().NodesByPath(target, ctx.node, true)
 
 				if err != nil {
 					c.Err(err)

@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/abiosoft/ishell"
+	"github.com/juruen/rmapi/model"
 )
 
 func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
@@ -20,20 +21,18 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 
 			src := c.Args[0]
+			dst := c.Args[1]
 
-			srcNodes, err := ctx.api.Filetree().NodesByPath(src, ctx.node)
+			srcNodes, err := ctx.api.Filetree().NodesByPath(src, ctx.node, false)
 
 			if err != nil {
 				c.Err(err)
 				return
 			}
-
-			if len(srcNodes) == 0 {
-				c.Err(errors.New("no match found"))
+			if len(srcNodes) < 1 {
+				c.Err(errors.New("no nodes found"))
 				return
 			}
-
-			dst := c.Args[1]
 
 			dstNode, err := ctx.api.Filetree().NodeByPath(dst, ctx.node)
 
@@ -45,6 +44,11 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			// We are moving the node to another directory
 			if dstNode != nil && dstNode.IsDirectory() {
 				for _, node := range srcNodes {
+					if isSubdir(node, dstNode) {
+						c.Err(fmt.Errorf("cannot move: %s in itself", node.Name()))
+						return
+					}
+
 					n, err := ctx.api.MoveEntry(node, dstNode, node.Name())
 
 					if err != nil {
@@ -75,7 +79,7 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			parentNode, err := ctx.api.Filetree().NodeByPath(parentDir, ctx.node)
 
 			if err != nil || parentNode.IsFile() {
-				c.Err(errors.New("directory doesn't exist"))
+				c.Err(fmt.Errorf("cannot move, %v", err))
 				return
 			}
 
@@ -93,4 +97,15 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			ctx.api.Filetree().MoveNode(srcNode, n)
 		},
 	}
+}
+
+// isSubdir check for moves e.g. a in a/sub1 which result in data loss
+func isSubdir(src *model.Node, dst *model.Node) bool {
+	for dst != nil {
+		if src.Id() == dst.Id() {
+			return true
+		}
+		dst = dst.Parent
+	}
+	return false
 }

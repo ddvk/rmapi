@@ -155,7 +155,7 @@ func (ctx *ApiCtx) CreateDir(parentId, name string) (*model.Document, error) {
 }
 
 // DeleteEntry removes an entry: either an empty directory or a file
-func (ctx *ApiCtx) DeleteEntry(node *model.Node) error {
+func (ctx *ApiCtx) DeleteEntry(node *model.Node, recursive, notify bool) error {
 	if node.IsDirectory() && len(node.Children) > 0 {
 		return errors.New("directory is not empty")
 	}
