@@ -34,6 +34,12 @@ go install
 
 You can download an already built version for either Linux or OSX from [releases](https://github.com/ddvk/rmapi/releases/).
 
+## Brew
+
+```
+brew install io41/tap/rmapi
+```
+
 ## Docker
 
 First clone this repository, then build a local container like
