@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/transport"
 	"golang.org/x/sync/errgroup"
@@ -211,8 +212,9 @@ func (t *HashTree) Rehash() error {
 	return nil
 }
 
-func addSchema(name string) string {
-	return name + ".docSchema"
+// adds the extensions to filename (for the rm-file header later)
+func addExt(name string, ext archive.RmExt) string {
+	return name + "." + string(ext)
 }
 
 // / Mirror makes the tree look like the storage
@@ -233,7 +235,7 @@ func (t *HashTree) Mirror(r RemoteStorage, maxconcurrent int) error {
 	}
 	log.Info.Printf("remote root hash different")
 
-	rootIndexReader, err := r.GetReader(rootHash, addSchema("root"))
+	rootIndexReader, err := r.GetReader(rootHash, addExt("root", archive.DocSchemaExt))
 	if err != nil {
 		return fmt.Errorf("cannot get root hash %v", err)
 	}

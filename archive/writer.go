@@ -59,7 +59,7 @@ func (z *Zip) writeContent(zw *zip.Writer) error {
 		return err
 	}
 
-	name := fmt.Sprintf("%s.content", z.UUID)
+	name := fmt.Sprintf("%s.%s", z.UUID, ContentExt)
 
 	w, err := addToZip(zw, name)
 	if err != nil {

@@ -142,13 +142,13 @@ func (ctx *ApiCtx) CreateDir(parentId, name string, notify bool) (*model.Documen
 	if err != nil {
 		return nil, err
 	}
-	files.AddMap(objectName, filePath)
+	files.AddMap(objectName, filePath, archive.MetadataExt)
 
 	objectName, filePath, err = archive.CreateContent(id, "", tmpDir, nil)
 	if err != nil {
 		return nil, err
 	}
-	files.AddMap(objectName, filePath)
+	files.AddMap(objectName, filePath, archive.ContentExt)
 
 	doc := NewBlobDoc(name, id, model.DirectoryType, parentId)
 
@@ -169,6 +169,7 @@ func (ctx *ApiCtx) CreateDir(parentId, name string, notify bool) (*model.Documen
 		if err != nil {
 			return nil, err
 		}
+		//does not accept rm-file in header
 		err = ctx.blobStorage.UploadBlob(hashStr, f.Name, reader)
 		reader.Close()
 
@@ -185,7 +186,7 @@ func (ctx *ApiCtx) CreateDir(parentId, name string, notify bool) (*model.Documen
 		return nil, err
 	}
 	// defer indexReader.Close()
-	err = ctx.blobStorage.UploadBlob(doc.Hash, addSchema(doc.DocumentID), indexReader)
+	err = ctx.blobStorage.UploadBlob(doc.Hash, addExt(doc.DocumentID, archive.DocSchemaExt), indexReader)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +228,7 @@ func Sync(b *BlobStorage, tree *HashTree, operation func(t *HashTree) error, not
 		if err != nil {
 			return err
 		}
-		err = b.UploadBlob(tree.Hash, addSchema("root"), indexReader)
+		err = b.UploadBlob(tree.Hash, addExt("root", archive.DocSchemaExt), indexReader)
 		if err != nil {
 			return err
 		}
@@ -305,7 +306,7 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 			return err
 		}
 
-		err = ctx.blobStorage.UploadBlob(hashStr, doc.DocumentID, reader)
+		err = ctx.blobStorage.UploadBlob(hashStr, addExt(doc.DocumentID, archive.MetadataExt), reader)
 
 		if err != nil {
 			return err
@@ -317,7 +318,7 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 			return err
 		}
 		// defer indexReader.Close()
-		return ctx.blobStorage.UploadBlob(doc.Hash, addSchema(doc.DocumentID), indexReader)
+		return ctx.blobStorage.UploadBlob(doc.Hash, addExt(doc.DocumentID, archive.DocSchemaExt), indexReader)
 	}, true)
 
 	if err != nil {
@@ -392,7 +393,7 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, notify 
 		return nil, err
 	}
 	// defer indexReader.Close()
-	err = ctx.blobStorage.UploadBlob(doc.Hash, addSchema(doc.DocumentID), indexReader)
+	err = ctx.blobStorage.UploadBlob(doc.Hash, addExt(doc.DocumentID, archive.DocSchemaExt), indexReader)
 	if err != nil {
 		return nil, err
 	}
