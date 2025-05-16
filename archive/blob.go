@@ -17,19 +17,31 @@ import (
 	"github.com/juruen/rmapi/util"
 )
 
+// extensions of the internal rm files
+type RmExt string
+
+const (
+	// DocSchema
+	DocSchemaExt RmExt = "docSchema"
+	MetadataExt  RmExt = "metadata"
+	ContentExt   RmExt = "content"
+)
+
 type NamePath struct {
-	Name string
-	Path string
+	Name     string
+	Path     string
+	FileType RmExt
 }
 
 type DocumentFiles struct {
 	Files []NamePath
 }
 
-func (d *DocumentFiles) AddMap(name, filepath string) {
+func (d *DocumentFiles) AddMap(name, filepath string, filetype RmExt) {
 	fs := NamePath{
-		Name: name,
-		Path: filepath,
+		Name:     name,
+		Path:     filepath,
+		FileType: filetype,
 	}
 	d.Files = append(d.Files, fs)
 }
@@ -53,7 +65,7 @@ func Prepare(name, parentId, sourceDocPath, ext, tmpDir string) (files *Document
 				err = err1
 				return
 			}
-			files.AddMap(objectName, filePath)
+			files.AddMap(objectName, filePath, MetadataExt)
 		} else {
 			err = FixMetadata(parentId, name, metadataPath)
 			if err != nil {
@@ -71,19 +83,19 @@ func Prepare(name, parentId, sourceDocPath, ext, tmpDir string) (files *Document
 			doctype = "notebook"
 			pageIds = []string{pageId}
 		}
-		files.AddMap(objectName, sourceDocPath)
+		files.AddMap(objectName, sourceDocPath, RmExt(doctype))
 		objectName, filePath, err1 := CreateMetadata(id, name, parentId, model.DocumentType, tmpDir)
 		if err1 != nil {
 			err = err1
 			return
 		}
-		files.AddMap(objectName, filePath)
+		files.AddMap(objectName, filePath, MetadataExt)
 
 		objectName, filePath, err = CreateContent(id, doctype, tmpDir, pageIds)
 		if err != nil {
 			return
 		}
-		files.AddMap(objectName, filePath)
+		files.AddMap(objectName, filePath, ContentExt)
 	}
 	return files, id, err
 }
@@ -123,7 +135,11 @@ func Unpack(src, dest string) (id string, files *DocumentFiles, metadataPath str
 	for _, f := range r.File {
 		fname := f.Name
 
-		if strings.HasSuffix(fname, ".content") {
+		ext := filepath.Ext(fname)
+		if len(ext) > 0 {
+			ext = ext[1:]
+		}
+		if ext == string(ContentExt) {
 			id = strings.TrimSuffix(fname, path.Ext(fname))
 		}
 		// Store filename/path for returning and using later on
@@ -140,10 +156,10 @@ func Unpack(src, dest string) (id string, files *DocumentFiles, metadataPath str
 			os.MkdirAll(fpath, os.ModePerm)
 			continue
 		} else {
-			files.AddMap(f.Name, fpath)
+			files.AddMap(f.Name, fpath, RmExt(ext))
 		}
 
-		if strings.HasSuffix(fname, ".metadata") {
+		if ext == string(MetadataExt) {
 			metadataPath = fpath
 		}
 

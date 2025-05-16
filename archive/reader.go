@@ -60,7 +60,7 @@ func (z *Zip) Read(r io.ReaderAt, size int64) error {
 
 // readContent reads the .content file contained in an archive and the UUID
 func (z *Zip) readContent(zr *zip.Reader) error {
-	files, err := zipExtFinder(zr, ".content")
+	files, err := zipExtFinder(zr, "."+string(ContentExt))
 	if err != nil {
 		return err
 	}

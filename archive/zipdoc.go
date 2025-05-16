@@ -138,7 +138,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 	f.Write(make([]byte, 0))
 
 	// Create content content
-	f, err = w.Create(fmt.Sprintf("%s.content", id))
+	f, err = w.Create(fmt.Sprintf("%s.%s", id, string(ContentExt)))
 	if err != nil {
 		log.Error.Println("failed to create content entry in zip file", err)
 		return
@@ -168,7 +168,7 @@ func CreateZipDirectory(id string) (string, error) {
 	defer w.Close()
 
 	// Create content content
-	f, err := w.Create(fmt.Sprintf("%s.content", id))
+	f, err := w.Create(fmt.Sprintf("%s.%s", id, string(ContentExt)))
 	if err != nil {
 		log.Error.Println("failed to create content entry in zip file", err)
 		return "", err
@@ -218,7 +218,7 @@ func createZipContent(ext string, pageIDs []string) (string, error) {
 }
 
 func CreateContent(id, ext, fpath string, pageIds []string) (fileName, filePath string, err error) {
-	fileName = id + ".content"
+	fileName = id + "." + string(ContentExt)
 	filePath = path.Join(fpath, fileName)
 	content := "{}"
 
@@ -240,7 +240,7 @@ func UnixTimestamp() string {
 }
 
 func CreateMetadata(id, name, parent, colType, fpath string) (fileName string, filePath string, err error) {
-	fileName = id + ".metadata"
+	fileName = id + "." + string(MetadataExt)
 	filePath = path.Join(fpath, fileName)
 	meta := MetadataFile{
 		DocName:        name,
