@@ -180,6 +180,11 @@ You can remove multiple entries at the same time.
 
 Use `mv source destination` to move or rename a file or directory.
 
+## Replace document PDF
+
+Use `replace-pdf local_file remote_entry` to swap only the PDF content of an
+existing document. Metadata and annotations are preserved.
+
 ## Stat a directory or file
 
 Use `stat entry` to dump its metadata as reported by the Cloud API.

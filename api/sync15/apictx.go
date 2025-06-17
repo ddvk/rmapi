@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -407,6 +408,62 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, notify 
 	}
 
 	return doc.ToDocument(), nil
+}
+
+// ReplaceDocumentFile replaces the main document file (e.g. PDF) of an existing document
+// identified by docId with the local file given by sourceDocPath. Metadata and annotations
+// remain untouched.
+func (ctx *ApiCtx) ReplaceDocumentFile(docId, sourceDocPath string, notify bool) error {
+	_, ext := util.DocPathToName(sourceDocPath)
+	return Sync(ctx.blobStorage, ctx.hashTree, func(t *HashTree) error {
+		doc, err := t.FindDoc(docId)
+		if err != nil {
+			return err
+		}
+
+		var fileEntry *Entry
+		for _, f := range doc.Files {
+			if strings.HasSuffix(f.DocumentID, "."+ext) {
+				fileEntry = f
+				break
+			}
+		}
+		if fileEntry == nil {
+			return fmt.Errorf("document does not contain .%s", ext)
+		}
+
+		hash, size, err := FileHashAndSize(sourceDocPath)
+		if err != nil {
+			return err
+		}
+		hashStr := hex.EncodeToString(hash)
+
+		r, err := os.Open(sourceDocPath)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+
+		if err := ctx.blobStorage.UploadBlob(hashStr, fileEntry.DocumentID, r); err != nil {
+			return err
+		}
+
+		fileEntry.Hash = hashStr
+		fileEntry.Size = size
+
+		if err := doc.Rehash(); err != nil {
+			return err
+		}
+		if err := t.Rehash(); err != nil {
+			return err
+		}
+
+		indexReader, err := doc.IndexReader()
+		if err != nil {
+			return err
+		}
+		return ctx.blobStorage.UploadBlob(doc.Hash, addExt(doc.DocumentID, archive.DocSchemaExt), indexReader)
+	}, notify)
 }
 
 // DocumentsFileTree reads your remote documents and builds a file tree
