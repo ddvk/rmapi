@@ -207,6 +207,11 @@ func createZipContent(ext string, pageIDs []string) (string, error) {
 		Pages: pageIDs,
 	}
 
+	if os.Getenv("RMAPI_COVERPAGE") == "first" {
+		val := 0
+		c.CoverPageNumber = &val
+	}
+
 	cstring, err := json.Marshal(c)
 
 	if err != nil {

@@ -1,6 +1,8 @@
 package archive
 
 import (
+	"os"
+
 	"github.com/juruen/rmapi/encoding/rm"
 )
 
@@ -58,6 +60,11 @@ func NewZip() *Zip {
 		},
 	}
 
+	if os.Getenv("RMAPI_COVERPAGE") == "first" {
+		val := 0
+		content.CoverPageNumber = &val
+	}
+
 	return &Zip{
 		Content: content,
 	}
@@ -101,6 +108,8 @@ type Content struct {
 	// Orientation can take "portrait" or "landscape".
 	Orientation string `json:"orientation"`
 	PageCount   int    `json:"pageCount"`
+	// CoverPageNumber sets which page should be used as the cover when set
+	CoverPageNumber *int `json:"coverPageNumber,omitempty"`
 	// Pages is a list of page IDs
 	Pages          []string `json:"pages"`
 	Tags           []string `json:"pageTags"`
