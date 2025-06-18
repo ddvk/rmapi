@@ -28,10 +28,9 @@ func TestWrite(t *testing.T) {
 }
 
 func TestCoverPageNumber(t *testing.T) {
-	os.Setenv("RMAPI_COVERPAGE", "first")
-	defer os.Unsetenv("RMAPI_COVERPAGE")
-
-	cstr, err := createZipContent("pdf", []string{""})
+	// Test with coverpage set to first page (0)
+	val := 0
+	cstr, err := createZipContent("pdf", []string{""}, &val)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,5 +42,20 @@ func TestCoverPageNumber(t *testing.T) {
 
 	if c.CoverPageNumber == nil || *c.CoverPageNumber != 0 {
 		t.Fatalf("expected coverPageNumber 0 got %v", c.CoverPageNumber)
+	}
+
+	// Test with no coverpage set
+	cstr, err = createZipContent("pdf", []string{""}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var c2 Content
+	if err := json.Unmarshal([]byte(cstr), &c2); err != nil {
+		t.Fatal(err)
+	}
+
+	if c2.CoverPageNumber != nil {
+		t.Fatalf("expected no coverPageNumber got %v", c2.CoverPageNumber)
 	}
 }
