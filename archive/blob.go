@@ -47,7 +47,7 @@ func (d *DocumentFiles) AddMap(name, filepath string, filetype RmExt) {
 }
 
 // Prepare prepares a file for uploading (creates needed temp files or unpacks a zip)
-func Prepare(name, parentId, sourceDocPath, ext, tmpDir string) (files *DocumentFiles, id string, err error) {
+func Prepare(name, parentId, sourceDocPath, ext, tmpDir string, coverpage *int) (files *DocumentFiles, id string, err error) {
 	files = &DocumentFiles{}
 	if ext == util.ZIP || ext == util.RMDOC {
 		var metadataPath string
@@ -91,7 +91,7 @@ func Prepare(name, parentId, sourceDocPath, ext, tmpDir string) (files *Document
 		}
 		files.AddMap(objectName, filePath, MetadataExt)
 
-		objectName, filePath, err = CreateContent(id, doctype, tmpDir, pageIds)
+		objectName, filePath, err = CreateContent(id, doctype, tmpDir, pageIds, coverpage)
 		if err != nil {
 			return
 		}

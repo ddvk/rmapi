@@ -144,7 +144,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 		return
 	}
 
-	c, err := createZipContent(fileType, pages)
+	c, err := createZipContent(fileType, pages, nil)
 	if err != nil {
 		return
 	}
@@ -179,7 +179,7 @@ func CreateZipDirectory(id string) (string, error) {
 	return tmp.Name(), nil
 }
 
-func createZipContent(ext string, pageIDs []string) (string, error) {
+func createZipContent(ext string, pageIDs []string, coverpage *int) (string, error) {
 	c := Content{
 		DummyDocument: false,
 		ExtraMetadata: ExtraMetadata{
@@ -207,9 +207,9 @@ func createZipContent(ext string, pageIDs []string) (string, error) {
 		Pages: pageIDs,
 	}
 
-	if os.Getenv("RMAPI_COVERPAGE") == "first" {
-		val := 0
-		c.CoverPageNumber = &val
+	// Set coverpage if provided
+	if coverpage != nil {
+		c.CoverPageNumber = coverpage
 	}
 
 	cstring, err := json.Marshal(c)
@@ -222,13 +222,13 @@ func createZipContent(ext string, pageIDs []string) (string, error) {
 	return string(cstring), nil
 }
 
-func CreateContent(id, ext, fpath string, pageIds []string) (fileName, filePath string, err error) {
+func CreateContent(id, ext, fpath string, pageIds []string, coverpage *int) (fileName, filePath string, err error) {
 	fileName = id + "." + string(ContentExt)
 	filePath = path.Join(fpath, fileName)
 	content := "{}"
 
 	if ext != "" {
-		content, err = createZipContent(ext, pageIds)
+		content, err = createZipContent(ext, pageIds, coverpage)
 		if err != nil {
 			return
 		}

@@ -18,7 +18,7 @@ type ApiCtx interface {
 	Filetree() *filetree.FileTreeCtx
 	FetchDocument(docId, dstPath string) error
 	CreateDir(parentId, name string, notify bool) (*model.Document, error)
-	UploadDocument(parentId string, sourceDocPath string, notify bool) (*model.Document, error)
+	UploadDocument(parentId string, sourceDocPath string, notify bool, coverpage *int) (*model.Document, error)
 	MoveEntry(src, dstDir *model.Node, name string) (*model.Node, error)
 	DeleteEntry(node *model.Node, recursive, notify bool) error
 	SyncComplete() error

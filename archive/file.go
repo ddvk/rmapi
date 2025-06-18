@@ -1,8 +1,6 @@
 package archive
 
 import (
-	"os"
-
 	"github.com/juruen/rmapi/encoding/rm"
 )
 
@@ -60,10 +58,6 @@ func NewZip() *Zip {
 		},
 	}
 
-	if os.Getenv("RMAPI_COVERPAGE") == "first" {
-		val := 0
-		content.CoverPageNumber = &val
-	}
 
 	return &Zip{
 		Content: content,
