@@ -117,13 +117,39 @@ find . (?i)foo
 
 ## Upload a file
 
-Use `put path_to_local_file` to upload a file  to the current directory.
+Use `put path_to_local_file` to upload a file to the current directory.
 
 You can also specify the destination directory:
 
 ```
 put book.pdf /books
 ```
+
+### Upload flags
+
+- `--force`: Completely replace an existing document (removes all annotations and metadata)
+- `--content-only`: Replace only the PDF content while preserving annotations and metadata
+
+Examples:
+
+```bash
+# Upload new file (fails if already exists)
+put document.pdf
+
+# Force overwrite existing document completely
+put --force document.pdf
+
+# Replace PDF content but keep annotations
+put --content-only document.pdf
+
+# Replace content of specific document
+put --content-only new.pdf existing-document
+
+# Upload to specific directory with force
+put --force document.pdf /reports
+```
+
+**Note**: `--force` and `--content-only` are mutually exclusive. If the target document doesn't exist, both flags will create a new document.
 
 ## Recursively upload directories and files
 
@@ -180,10 +206,6 @@ You can remove multiple entries at the same time.
 
 Use `mv source destination` to move or rename a file or directory.
 
-## Replace document PDF
-
-Use `replace-pdf local_file remote_entry` to swap only the PDF content of an
-existing document. Metadata and annotations are preserved.
 
 ## Stat a directory or file
 

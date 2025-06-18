@@ -62,8 +62,6 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string) error {
 	shell.AddCmd(rmCmd(ctx))
 	shell.AddCmd(mvCmd(ctx))
 	shell.AddCmd(putCmd(ctx))
-	shell.AddCmd(updateCmd(ctx))
-	shell.AddCmd(replacePDFCmd(ctx))
 	shell.AddCmd(mputCmd(ctx))
 	shell.AddCmd(versionCmd(ctx))
 	shell.AddCmd(statCmd(ctx))
