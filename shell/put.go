@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/abiosoft/ishell"
-	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/util"
 )
 
@@ -55,24 +54,24 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 					return
 				}
 
-				var dstPath string
-				var targetNode *model.Node
+				docName, _ := util.DocPathToName(srcName)
+				node := ctx.node
+				var err error
 
+				// Parse destination directory if provided
 				if len(args) == 2 {
-					dstPath = args[1]
-					targetNode = ctx.node
-				} else {
-					// Use filename without extension as target document name
-					docName, _ := util.DocPathToName(srcName)
-					dstPath = docName
-					targetNode = ctx.node
+					node, err = ctx.api.Filetree().NodeByPath(args[1], ctx.node)
+					if err != nil || node.IsFile() {
+						c.Err(errors.New("directory doesn't exist"))
+						return
+					}
 				}
 
-				existingNode, err := ctx.api.Filetree().NodeByPath(dstPath, targetNode)
+				existingNode, err := ctx.api.Filetree().NodeByPath(docName, node)
 				if err != nil {
 					// Document doesn't exist, create new one
 					c.Printf("uploading: [%s]...", srcName)
-					dstDir := targetNode.Id()
+					dstDir := node.Id()
 					document, err := ctx.api.UploadDocument(dstDir, srcName, true)
 					if err != nil {
 						c.Err(fmt.Errorf("failed to upload file [%s]: %v", srcName, err))
@@ -88,7 +87,7 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 					return
 				}
 
-				c.Printf("replacing PDF content of [%s] with [%s]...", dstPath, srcName)
+				c.Printf("replacing PDF content of [%s] with [%s]...", docName, srcName)
 				if err := ctx.api.ReplaceDocumentFile(existingNode.Document.ID, srcName, true); err != nil {
 					c.Err(fmt.Errorf("failed to replace content: %v", err))
 					return
