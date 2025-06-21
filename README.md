@@ -125,6 +125,36 @@ You can also specify the destination directory:
 put book.pdf /books
 ```
 
+### Upload flags
+
+- `--force`: Completely replace an existing document (removes all annotations and metadata)
+- `--content-only`: Replace only the PDF content while preserving annotations and metadata
+- `--coverpage=<0|1>`: Set coverpage (0 to disable, 1 to set first page as cover)
+
+Examples:
+
+```bash
+# Upload new file (fails if already exists)
+put document.pdf
+
+# Force overwrite existing document completely
+put --force document.pdf
+
+# Replace PDF content but keep annotations
+put --content-only document.pdf
+
+# Upload with coverpage set to first page
+put --coverpage=1 document.pdf
+
+# Replace PDF content in specific directory
+put --content-only document.pdf /target-directory
+
+# Upload to specific directory with force
+put --force document.pdf /reports
+```
+
+**Note**: `--force` and `--content-only` are mutually exclusive. The `--coverpage` flag can be combined with either. If the target document doesn't exist, all flags will create a new document.
+
 ## Recursively upload directories and files
 
 Use `mput path_to_dir` to recursively upload all the local files to that directory.
