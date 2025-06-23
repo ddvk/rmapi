@@ -8,61 +8,84 @@ on:
 jobs:
 
   build:
-    name: Build
+    name: Build ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+            archive: tar.gz
+            name: linux-amd64
+          - goos: linux
+            goarch: arm64
+            ext: ""
+            archive: tar.gz
+            name: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+            archive: zip
+            name: macos-intel
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+            archive: zip
+            name: macos-arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+            archive: zip
+            name: win64
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+            archive: zip
+            name: win-arm64
     steps:
-
       - name: Set up Go 1.23.1
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.1
-        id: go
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - run: echo "VERSION=`echo $(git describe --tags)`" >> $GITHUB_ENV
 
-      - name: Build Linux AMD64 binary
-        run: GOOS=linux GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-linux-amd64 .
+      - name: Build binary
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi${{ matrix.ext }} .
 
-      - name: Build Linux ARM64 binary
-        run: GOOS=linux GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-linux-arm64 .
+      - name: Create archive
+        run: |
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar czvf rmapi-${{ matrix.name }}.tar.gz rmapi${{ matrix.ext }}
+          else
+            zip rmapi-${{ matrix.name }}.zip rmapi${{ matrix.ext }}
+          fi
 
-      - name: Create Linux AMD64 tar
-        run: tar czvf rmapi-linux-amd64.tar.gz rmapi-linux-amd64
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmapi-${{ matrix.name }}
+          path: rmapi-${{ matrix.name }}.${{ matrix.archive }}
 
-      - name: Create Linux ARM64 tar
-        run: tar czvf rmapi-linux-arm64.tar.gz rmapi-linux-arm64
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
 
-      - name: Build MacOS AMD64 binary
-        run: GOOS=darwin GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-darwin-amd64 .
-
-      - name: Build MacOS ARM64 binary
-        run: GOOS=darwin GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-darwin-arm64 .
-
-      - name: Create MacOS AMD64 zip
-        run: zip rmapi-darwin-amd64.zip rmapi-darwin-amd64
-
-      - name: Create MacOS ARM64 zip
-        run: zip rmapi-darwin-arm64.zip rmapi-darwin-arm64
-
-      - name: Build Windows AMD64 binary
-        run: GOOS=windows GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-windows-amd64.exe .
-
-      - name: Build Windows ARM64 binary
-        run: GOOS=windows GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-windows-arm64.exe .
-
-      - name: Create Windows AMD64 zip
-        run: zip rmapi-windows-amd64.zip rmapi-windows-amd64.exe
-
-      - name: Create Windows ARM64 zip
-        run: zip rmapi-windows-arm64.zip rmapi-windows-arm64.exe
+      - name: List downloaded files
+        run: find . -name "rmapi-*" -type f
 
       - name: Release
         uses: docker://softprops/action-gh-release
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: rmapi-*.zip rmapi-*.tar.gz
+          files: "*/rmapi-*"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
