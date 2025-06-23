@@ -23,29 +23,46 @@ jobs:
 
       - run: echo "VERSION=`echo $(git describe --tags)`" >> $GITHUB_ENV
 
-      - name: Build Linux binary
-        run: go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi .
-        
+      - name: Build Linux AMD64 binary
+        run: GOOS=linux GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-linux-amd64 .
 
-      - name: Create tar
-        run: tar czvf rmapi-linuxx86-64.tar.gz rmapi
+      - name: Build Linux ARM64 binary
+        run: GOOS=linux GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-linux-arm64 .
 
-      - name: Build MacOS binary
-        run:  GOOS=darwin go build -v -o rmapi .
+      - name: Create Linux AMD64 tar
+        run: tar czvf rmapi-linux-amd64.tar.gz rmapi-linux-amd64
 
-      - name: Create zip
-        run: zip rmapi-macosx.zip rmapi
+      - name: Create Linux ARM64 tar
+        run: tar czvf rmapi-linux-arm64.tar.gz rmapi-linux-arm64
 
-      - name: Build Windows binary
-        run:  GOOS=windows go build -v -o rmapi.exe .
+      - name: Build MacOS AMD64 binary
+        run: GOOS=darwin GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-darwin-amd64 .
 
-      - name: Create zip
-        run: zip rmapi-win64.zip rmapi.exe
+      - name: Build MacOS ARM64 binary
+        run: GOOS=darwin GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-darwin-arm64 .
+
+      - name: Create MacOS AMD64 zip
+        run: zip rmapi-darwin-amd64.zip rmapi-darwin-amd64
+
+      - name: Create MacOS ARM64 zip
+        run: zip rmapi-darwin-arm64.zip rmapi-darwin-arm64
+
+      - name: Build Windows AMD64 binary
+        run: GOOS=windows GOARCH=amd64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-windows-amd64.exe .
+
+      - name: Build Windows ARM64 binary
+        run: GOOS=windows GOARCH=arm64 go build -v -ldflags "-X 'github.com/juruen/rmapi/version.Version=${{ env.VERSION }}'" -o rmapi-windows-arm64.exe .
+
+      - name: Create Windows AMD64 zip
+        run: zip rmapi-windows-amd64.zip rmapi-windows-amd64.exe
+
+      - name: Create Windows ARM64 zip
+        run: zip rmapi-windows-arm64.zip rmapi-windows-arm64.exe
 
       - name: Release
         uses: docker://softprops/action-gh-release
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: rmapi-*
+          files: rmapi-*.zip rmapi-*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
