@@ -106,6 +106,7 @@ type Content struct {
 	Tags           []string `json:"pageTags"`
 	RedirectionMap []int    `json:"redirectionPageMap"`
 	TextScale      int      `json:"textScale"`
+	CoverPageNumber *int    `json:"coverPageNumber,omitempty"`
 
 	Transform Transform `json:"transform"`
 }

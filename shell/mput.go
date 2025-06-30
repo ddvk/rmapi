@@ -213,7 +213,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 				pC.Printf("uploading: [%s]...", name)
 
 				fullName := path.Join(localDir, name)
-				doc, err := pCtx.api.UploadDocument(pCtx.node.Id(), fullName, false)
+				doc, err := pCtx.api.UploadDocument(pCtx.node.Id(), fullName, false, nil)
 
 				if err != nil {
 					pC.Err(fmt.Errorf("failed to upload file '%s', %v", name, err))
