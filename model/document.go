@@ -3,6 +3,7 @@ package model
 const (
 	DirectoryType = "CollectionType"
 	DocumentType  = "DocumentType"
+	TemplateType  = "TemplateType"
 )
 
 type Document struct {

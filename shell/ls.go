@@ -10,6 +10,21 @@ import (
 	flag "github.com/ogier/pflag"
 )
 
+func filterNodes(in []*model.Node, options LsOptions) []*model.Node {
+	var filtered []*model.Node
+	if options.ShowTemplates {
+		filtered = in
+	}
+	if !options.ShowTemplates {
+		for _, node := range in {
+			if node.Document.Type != model.TemplateType {
+				filtered = append(filtered, node)
+			}
+		}
+	}
+	return filtered
+}
+
 func sortNodes(in []*model.Node, options LsOptions) []*model.Node {
 	sort.SliceStable(in, func(i, j int) bool {
 		if options.DirFirst {
@@ -62,11 +77,12 @@ func displayNode(c *ishell.Context, e *model.Node, d LsOptions) {
 }
 
 type LsOptions struct {
-	Long     bool
-	Compact  bool
-	Reverse  bool
-	DirFirst bool
-	ByTime   bool
+	Long          bool
+	Compact       bool
+	Reverse       bool
+	DirFirst      bool
+	ByTime        bool
+	ShowTemplates bool
 }
 
 func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
@@ -82,6 +98,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 			flagSet.BoolVarP(&d.Reverse, "reverse", "r", false, "reverse sort")
 			flagSet.BoolVarP(&d.DirFirst, "group-directories", "d", false, "group directories")
 			flagSet.BoolVarP(&d.ByTime, "time", "t", false, "sort by time")
+			flagSet.BoolVarP(&d.ShowTemplates, "show-templates", "s", false, "don't hide template files")
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
 					c.Err(err)
@@ -104,7 +121,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			}
 
-			sorted := sortNodes(nodes, d)
+			sorted := sortNodes(filterNodes(nodes, d), d)
 
 			for _, e := range sorted {
 				displayNode(c, e, d)
