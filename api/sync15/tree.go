@@ -99,12 +99,12 @@ func parseSchemaV4(line string) (entriesCount int, totalSize int64, err error) {
 	return
 }
 
-func parseIndex(f io.Reader) ([]*Entry, error) {
+func parseIndex(f io.Reader) ([]*Entry, string, error) {
 	var entries []*Entry
 	scanner := bufio.NewScanner(f)
 	eof := scanner.Scan()
 	if !eof {
-		return nil, fmt.Errorf("empty index file")
+		return nil, "", fmt.Errorf("empty index file")
 	}
 	schema := scanner.Text()
 	expectedCount := 0
@@ -115,12 +115,12 @@ func parseIndex(f io.Reader) ([]*Entry, error) {
 	case SchemaVersionV4:
 		eof := scanner.Scan()
 		if !eof {
-			return nil, fmt.Errorf("expecting a schema v4 line")
+			return nil, schema, fmt.Errorf("expecting a schema v4 line")
 		}
 		line := scanner.Text()
 		expectedCount, _, err = parseSchemaV4(line)
 		if err != nil {
-			return nil, fmt.Errorf("can't parse v4 line %v", err)
+			return nil, schema, fmt.Errorf("can't parse v4 line %v", err)
 		}
 		fallthrough
 	case SchemaVersionV3:
@@ -133,13 +133,13 @@ func parseIndex(f io.Reader) ([]*Entry, error) {
 			count++
 			entry, err := parseEntry(line)
 			if err != nil {
-				return nil, fmt.Errorf("cant parse line '%s', %w", line, err)
+				return nil, schema, fmt.Errorf("cant parse line '%s', %w", line, err)
 			}
 
 			entries = append(entries, entry)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported schema %s", schema)
+		return nil, schema, fmt.Errorf("unsupported schema %s", schema)
 	}
 	if schema == SchemaVersionV4 {
 		if count != expectedCount {
@@ -147,30 +147,42 @@ func parseIndex(f io.Reader) ([]*Entry, error) {
 		}
 	}
 
-	return entries, nil
+	return entries, schema, nil
 }
 
 func (t *HashTree) IndexReader() (io.Reader, error) {
 	var w bytes.Buffer
-	w.WriteString(SchemaVersionV4)
-	w.WriteString("\n")
 
-	// Add V4 root entry line: 0:.:count:totalSize
-	totalSize := int64(0)
-	for _, d := range t.Docs {
-		totalSize += d.Size
+	schemaVersion := t.SchemaVersion
+	if schemaVersion == "" {
+		schemaVersion = SchemaVersionV3
 	}
-	w.WriteString("0")
-	w.WriteRune(Delimiter)
-	w.WriteString(".")
-	w.WriteRune(Delimiter)
-	w.WriteString(strconv.Itoa(len(t.Docs)))
-	w.WriteRune(Delimiter)
-	w.WriteString(strconv.FormatInt(totalSize, 10))
+
+	if envSchema := os.Getenv("RMAPI_FORCE_SCHEMA_VERSION"); envSchema != "" {
+		log.Info.Printf("forcing schema version to %s via RMAPI_FORCE_SCHEMA_VERSION", envSchema)
+		schemaVersion = envSchema
+	}
+
+	w.WriteString(schemaVersion)
 	w.WriteString("\n")
 
+	if schemaVersion == SchemaVersionV4 {
+		totalSize := int64(0)
+		for _, d := range t.Docs {
+			totalSize += d.Size
+		}
+		w.WriteString("0")
+		w.WriteRune(Delimiter)
+		w.WriteString(".")
+		w.WriteRune(Delimiter)
+		w.WriteString(strconv.Itoa(len(t.Docs)))
+		w.WriteRune(Delimiter)
+		w.WriteString(strconv.FormatInt(totalSize, 10))
+		w.WriteString("\n")
+	}
+
 	for _, d := range t.Docs {
-		w.WriteString(d.Line())
+		w.WriteString(d.LineWithSchema(schemaVersion))
 		w.WriteString("\n")
 	}
 
@@ -180,6 +192,7 @@ func (t *HashTree) IndexReader() (io.Reader, error) {
 type HashTree struct {
 	Hash         string
 	Generation   int64
+	SchemaVersion string
 	Docs         []*BlobDoc
 	CacheVersion int
 }
@@ -215,21 +228,42 @@ func (t *HashTree) Remove(id string) error {
 }
 
 func (t *HashTree) Rehash() error {
-	// Generate the schema content
-	reader, err := t.IndexReader()
-	if err != nil {
-		return err
+	schemaVersion := t.SchemaVersion
+	if schemaVersion == "" {
+		schemaVersion = SchemaVersionV3
 	}
 
-	// Calculate SHA256 of the actual schema content
-	schemaBytes, err := io.ReadAll(reader)
-	if err != nil {
-		return err
+	if envSchema := os.Getenv("RMAPI_FORCE_SCHEMA_VERSION"); envSchema != "" {
+		schemaVersion = envSchema
 	}
 
-	hasher := sha256.New()
-	hasher.Write(schemaBytes)
-	hash := hex.EncodeToString(hasher.Sum(nil))
+	var hash string
+	var err error
+
+	if schemaVersion == SchemaVersionV3 {
+		entries := []*Entry{}
+		for _, e := range t.Docs {
+			entries = append(entries, &e.Entry)
+		}
+		hash, err = HashEntries(entries)
+		if err != nil {
+			return err
+		}
+	} else {
+		reader, err := t.IndexReader()
+		if err != nil {
+			return err
+		}
+
+		schemaBytes, err := io.ReadAll(reader)
+		if err != nil {
+			return err
+		}
+
+		hasher := sha256.New()
+		hasher.Write(schemaBytes)
+		hash = hex.EncodeToString(hasher.Sum(nil))
+	}
 
 	log.Info.Println("New root hash: ", hash)
 	t.Hash = hash
@@ -251,6 +285,8 @@ func (t *HashTree) Mirror(r RemoteStorage, maxconcurrent int) error {
 		log.Info.Println("Empty cloud")
 		t.Docs = nil
 		t.Generation = 0
+		t.SchemaVersion = SchemaVersionV4
+		log.Info.Println("defaulting to schema v4 for empty cloud")
 		return nil
 	}
 
@@ -265,10 +301,13 @@ func (t *HashTree) Mirror(r RemoteStorage, maxconcurrent int) error {
 	}
 	defer rootIndexReader.Close()
 
-	entries, err := parseIndex(rootIndexReader)
+	entries, schema, err := parseIndex(rootIndexReader)
 	if err != nil {
 		return fmt.Errorf("cannot parse rootIndex, %v", err)
 	}
+
+	t.SchemaVersion = schema
+	log.Info.Printf("detected schema version: %s", schema)
 
 	head := make([]*BlobDoc, 0)
 	current := make(map[string]*BlobDoc)
@@ -348,19 +387,27 @@ func BuildTree(provider RemoteStorage) (*HashTree, error) {
 	}
 
 	defer rootIndex.Close()
-	entries, err := parseIndex(rootIndex)
+	entries, schema, err := parseIndex(rootIndex)
 	if err != nil {
 		return nil, fmt.Errorf("build tree root index error %v", err)
 	}
 
+	tree.SchemaVersion = schema
+
 	for _, e := range entries {
-		f, _ := provider.GetReader(e.Hash, e.DocumentID)
+		f, err := provider.GetReader(e.Hash, e.DocumentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read blob %s: %w", e.DocumentID, err)
+		}
 		defer f.Close()
 
 		doc := &BlobDoc{}
 		doc.Entry = *e
 
-		items, _ := parseIndex(f)
+		items, _, err := parseIndex(f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse index for %s: %w", e.DocumentID, err)
+		}
 		doc.Files = items
 		for _, i := range items {
 			doc.ReadMetadata(i, provider)
