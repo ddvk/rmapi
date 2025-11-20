@@ -109,8 +109,9 @@ func TestCreateRootIndex(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	expected := `3
-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:80000000:someid:1:0
+	expected := `4
+0:.:1:0
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:0:someid:1:0
 `
 	strIndex := string(index)
 

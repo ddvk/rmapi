@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -151,8 +152,23 @@ func parseIndex(f io.Reader) ([]*Entry, error) {
 
 func (t *HashTree) IndexReader() (io.Reader, error) {
 	var w bytes.Buffer
-	w.WriteString(SchemaVersionV3)
+	w.WriteString(SchemaVersionV4)
 	w.WriteString("\n")
+
+	// Add V4 root entry line: 0:.:count:totalSize
+	totalSize := int64(0)
+	for _, d := range t.Docs {
+		totalSize += d.Size
+	}
+	w.WriteString("0")
+	w.WriteRune(Delimiter)
+	w.WriteString(".")
+	w.WriteRune(Delimiter)
+	w.WriteString(strconv.Itoa(len(t.Docs)))
+	w.WriteRune(Delimiter)
+	w.WriteString(strconv.FormatInt(totalSize, 10))
+	w.WriteString("\n")
+
 	for _, d := range t.Docs {
 		w.WriteString(d.Line())
 		w.WriteString("\n")
@@ -199,14 +215,22 @@ func (t *HashTree) Remove(id string) error {
 }
 
 func (t *HashTree) Rehash() error {
-	entries := []*Entry{}
-	for _, e := range t.Docs {
-		entries = append(entries, &e.Entry)
-	}
-	hash, err := HashEntries(entries)
+	// Generate the schema content
+	reader, err := t.IndexReader()
 	if err != nil {
 		return err
 	}
+
+	// Calculate SHA256 of the actual schema content
+	schemaBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+
+	hasher := sha256.New()
+	hasher.Write(schemaBytes)
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
 	log.Info.Println("New root hash: ", hash)
 	t.Hash = hash
 	return nil
