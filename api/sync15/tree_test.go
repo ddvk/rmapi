@@ -29,13 +29,17 @@ func TestParseIndex(t *testing.T) {
 	index := `3
 	0f83178c4ebe6a60fae0360b74916ee9e1faa5de1c56ab3481eccdc5cb98754f:0:fe0039fb-56a0-4561-a36f-a820f0009622.content:0:993
 	17eca6c9a540c993f5f5506bb09b7a40993c02fa8f065b1a6a442e412cf2fd04:0:fe0039fb-56a0-4561-a36f-a820f0009622.metadata:0:320`
-	entries, err := parseIndex(strings.NewReader(index))
+	entries, schema, err := parseIndex(strings.NewReader(index))
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	if len(entries) != 2 {
 		t.Error("wrong number of entries")
+		return
+	}
+	if schema != SchemaVersionV3 {
+		t.Errorf("expected schema v3, got %s", schema)
 		return
 	}
 }
@@ -44,13 +48,17 @@ func TestParseIndexV4(t *testing.T) {
 	0:.:2:1823419036
 	0f83178c4ebe6a60fae0360b74916ee9e1faa5de1c56ab3481eccdc5cb98754f:0:fe0039fb-56a0-4561-a36f-a820f0009622.content:0:993
 	17eca6c9a540c993f5f5506bb09b7a40993c02fa8f065b1a6a442e412cf2fd04:0:fe0039fb-56a0-4561-a36f-a820f0009622.metadata:0:320`
-	entries, err := parseIndex(strings.NewReader(index))
+	entries, schema, err := parseIndex(strings.NewReader(index))
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	if len(entries) != 2 {
 		t.Error("wrong number of entries")
+		return
+	}
+	if schema != SchemaVersionV4 {
+		t.Errorf("expected schema v4, got %s", schema)
 		return
 	}
 }
@@ -90,7 +98,9 @@ blah:0:someid:0:10
 }
 
 func TestCreateRootIndex(t *testing.T) {
-	tree := HashTree{}
+	tree := HashTree{
+		SchemaVersion: SchemaVersionV4,
+	}
 	doc := &BlobDoc{
 		Entry: Entry{
 			Hash:       "somehash",

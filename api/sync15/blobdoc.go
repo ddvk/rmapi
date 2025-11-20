@@ -95,14 +95,23 @@ func (t *HashTree) Add(d *BlobDoc) error {
 }
 
 func (d *BlobDoc) IndexReader() (io.Reader, error) {
+	return d.IndexReaderWithSchema("")
+}
+
+func (d *BlobDoc) IndexReaderWithSchema(schema string) (io.Reader, error) {
 	if len(d.Files) == 0 {
 		return nil, errors.New("no files")
 	}
+
+	if schema == "" {
+		schema = SchemaVersionV3
+	}
+
 	var w bytes.Buffer
-	w.WriteString(SchemaVersionV3)
+	w.WriteString(schema)
 	w.WriteString("\n")
-	for _, d := range d.Files {
-		w.WriteString(d.Line())
+	for _, f := range d.Files {
+		w.WriteString(f.Line())
 		w.WriteString("\n")
 	}
 
@@ -137,13 +146,22 @@ func (d *BlobDoc) ReadMetadata(fileEntry *Entry, r RemoteStorage) error {
 }
 
 func (d *BlobDoc) Line() string {
+	return d.LineWithSchema("")
+}
+
+func (d *BlobDoc) LineWithSchema(schema string) string {
 	var sb strings.Builder
 	if d.Hash == "" {
 		log.Error.Print("missing hash for: ", d.DocumentID)
 	}
 	sb.WriteString(d.Hash)
 	sb.WriteRune(Delimiter)
-	sb.WriteString(FileType)
+
+	typeField := FileType
+	if schema == SchemaVersionV3 {
+		typeField = DocType
+	}
+	sb.WriteString(typeField)
 	sb.WriteRune(Delimiter)
 	sb.WriteString(d.DocumentID)
 	sb.WriteRune(Delimiter)
@@ -163,7 +181,7 @@ func (d *BlobDoc) Mirror(e *Entry, r RemoteStorage) error {
 		return err
 	}
 	defer entryIndex.Close()
-	entries, err := parseIndex(entryIndex)
+	entries, _, err := parseIndex(entryIndex)
 	if err != nil {
 		return fmt.Errorf("blobdoc index error %v", err)
 	}
