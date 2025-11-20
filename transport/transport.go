@@ -109,9 +109,12 @@ func (ctx HttpClientCtx) Put(authType AuthType, url string, reqBody, resp interf
 	return ctx.httpRawReq(authType, http.MethodPut, url, reqBody, resp, headers)
 }
 
-func (ctx HttpClientCtx) PutStream(authType AuthType, url string, reqBody io.Reader, name string) error {
+func (ctx HttpClientCtx) PutStream(authType AuthType, url string, reqBody io.Reader, name string, extraHeaders map[string]string) error {
 	headers := map[string]string{
 		RmFileNameHeader: name,
+	}
+	for k, v := range extraHeaders {
+		headers[k] = v
 	}
 	return ctx.httpRawReq(authType, http.MethodPut, url, reqBody, nil, headers)
 }
@@ -176,7 +179,9 @@ func (ctx HttpClientCtx) httpRawReq(authType AuthType, verb, url string, reqBody
 		if err != nil {
 			return fmt.Errorf("cannot get content length")
 		}
-		headers["content-type"] = "application/octet-stream"
+		if _, exists := headers["content-type"]; !exists {
+			headers["content-type"] = "application/octet-stream"
+		}
 		// headers["Content-Length"] = strconv.FormatInt(length, 10)
 		_, err = seeker.Seek(0, io.SeekStart)
 		if err != nil {

@@ -28,7 +28,11 @@ func (b *BlobStorage) GetReader(hash, filename string) (io.ReadCloser, error) {
 func (b *BlobStorage) UploadBlob(hash, filename string, reader io.Reader) error {
 	log.Trace.Println("uploading blob ", filename)
 
-	return b.http.PutStream(transport.UserBearer, config.BlobUrl+hash, reader, filename)
+	headers := map[string]string{}
+	if filename == "root.docSchema" {
+		headers["content-type"] = "text/plain; charset=UTF-8"
+	}
+	return b.http.PutStream(transport.UserBearer, config.BlobUrl+hash, reader, filename, headers)
 }
 
 // SyncComplete no longer used

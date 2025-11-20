@@ -143,7 +143,7 @@ func (d *BlobDoc) Line() string {
 	}
 	sb.WriteString(d.Hash)
 	sb.WriteRune(Delimiter)
-	sb.WriteString(DocType)
+	sb.WriteString(FileType)
 	sb.WriteRune(Delimiter)
 	sb.WriteString(d.DocumentID)
 	sb.WriteRune(Delimiter)
