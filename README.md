@@ -122,16 +122,48 @@ Use `cd` to change the current directory to any other directory in the hierarchy
 
 ## Find a file
 
-The command  `find` takes one or two arguments.
+The find command can be used to search through all of your reMarkable files recursively.
 
-If only the first argument is passed, all entries from that point are printed recursively.
+The first argument is the directory, and the second argument is your search query.
 
-When the second argument is also passed, a regexp is expected, and only those entries that match the regexp are printed.
+The search query is optional, when left out, the command will list files recursively.
 
-Golang standard regexps are used. For instance, to make the regexp case insensitve you can do:
+### Find examples
 
-```
-find . (?i)foo
+```bash
+# Find all starred files
+find --starred
+
+# Find starred files in the root directory
+find --starred /
+
+# Find files with the "read-later" tag in the current directory or below (recursively)
+find --tag="read-later" .
+
+# Searching is performed using standard Go regular expressions
+# Find files using a regular expression, for example when you have a particular format for diary files
+find / "Diary-.*"
+# For example, if you date your journals like this "Journal-DD-MM-YYYY", you can search for all journals in 2024 using
+find / "Journal-..-..-2024"
+# Or just search for all files with 2024 in the filename
+find / ".*2024.*"
+# If you want to search ignore character casing, you can do that as follows:
+find / "(?!i)case_insensitive_search"
+
+# Find files with either "Work" or "Personal" tag
+find --tag="Work" --tag="Personal"
+
+# Find starred files with a specific tag
+find --starred --tag="Important"
+
+# Combine with regexp search
+find --tag="Projects/2024" . ".*report.*"
+
+# Tags can contain special characters like /, \, ", etc.
+# Just quote them as you would any shell argument
+find --tag="Work/Projects" --tag="tag,with,comma"
+# This tag contains a double quote, you can escape it using \"
+find --tag="tag-\"with-double-quote"
 ```
 
 ## Upload a file
