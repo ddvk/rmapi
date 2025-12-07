@@ -87,14 +87,15 @@ type LsOptions struct {
 }
 
 type NodeJSON struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	Version        int    `json:"version"`
-	ModifiedClient string `json:"modifiedClient"`
-	CurrentPage    int    `json:"currentPage"`
-	Starred        bool   `json:"starred"`
-	Parent         string `json:"parent"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	Type           string   `json:"type"`
+	Version        int      `json:"version"`
+	ModifiedClient string   `json:"modifiedClient"`
+	CurrentPage    int      `json:"currentPage"`
+	Starred        bool     `json:"starred"`
+	Parent         string   `json:"parent"`
+	Tags           []string `json:"tags"`
 }
 
 func nodeToJSON(node *model.Node) NodeJSON {
@@ -107,6 +108,7 @@ func nodeToJSON(node *model.Node) NodeJSON {
 		CurrentPage:    node.Document.CurrentPage,
 		Starred:        node.Document.Starred,
 		Parent:         node.Document.Parent,
+		Tags:           node.Document.Tags,
 	}
 }
 

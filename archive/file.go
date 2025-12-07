@@ -45,7 +45,7 @@ func NewZip() *Zip {
 		PageCount:      0,
 		Pages:          []string{},
 		TextScale:      1,
-		Transform: Transform{
+		Transform: &Transform{
 			M11: 1,
 			M12: 0,
 			M13: 0,
@@ -87,6 +87,19 @@ type Layer struct {
 	Name string `json:"name"`
 }
 
+// Tag represents a document-level tag with timestamp
+type Tag struct {
+	Name      string `json:"name"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+// PageTag represents a page-level tag with page ID and timestamp
+type PageTag struct {
+	Name      string `json:"name"`
+	PageID    string `json:"pageId"`
+	Timestamp int64  `json:"timestamp"`
+}
+
 // Content represents the structure of a .content json file.
 type Content struct {
 	DummyDocument bool          `json:"dummyDocument"`
@@ -102,13 +115,14 @@ type Content struct {
 	Orientation string `json:"orientation"`
 	PageCount   int    `json:"pageCount"`
 	// Pages is a list of page IDs
-	Pages          []string `json:"pages"`
-	Tags           []string `json:"pageTags"`
-	RedirectionMap []int    `json:"redirectionPageMap"`
-	TextScale      int      `json:"textScale"`
-	CoverPageNumber *int    `json:"coverPageNumber,omitempty"`
+	Pages           []string  `json:"pages"`
+	PageTags        []PageTag `json:"pageTags"`
+	DocumentTags    []Tag     `json:"tags"`
+	RedirectionMap  []int     `json:"redirectionPageMap"`
+	TextScale       float64   `json:"textScale"`
+	CoverPageNumber *int      `json:"coverPageNumber,omitempty"`
 
-	Transform Transform `json:"transform"`
+	Transform *Transform `json:"-"`
 }
 
 // ExtraMetadata is a struct contained into a Content struct.
