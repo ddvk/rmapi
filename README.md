@@ -99,22 +99,21 @@ are directories, and `[f]` if they are files.
 
 Alternatively, pass the `--json` flag and receive output in JSON.
 
-```json
-[
-  {
-    "id": "981bece1-fd9d-499d-9b89-e5b5e2d1da34",
-    "name": "Journal",
-    "type": "DocumentType",
-    "version": 0,
-    "modifiedClient": "2025-09-21T15:53:05Z",
-    "currentPage": -1,
-    "parent": "2dccadc5-65a3-440d-86bc-da96df1f8324",
-    "isDirectory": false
-  },
-  {
-   "...": "..."
-  }
-]
+```typescript
+interface Node {
+  id: string; // empty string for root node
+  name: string;
+  // TemplateType are downloaded reMarkable methods
+  // CollectionType refers to directories or the root node
+  // DocumentType is any PDF-document, Ebook or notebook    
+  type: "CollectionType" | "DocumentType" | "TemplateType";
+  version: number;         // Only relevant for type=DocumentType
+  modifiedClient: string;  // RFC3339Nano timestamp, empty for root
+  currentPage: number;     // 0-indexed, only meaningful for type=DocumentType
+  parent: string;          // parent ID, empty string for root children
+}
+
+type LsOutput = Node[];
 ```
 
 ## Change current directory
