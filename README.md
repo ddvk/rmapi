@@ -111,6 +111,8 @@ interface Node {
   modifiedClient: string;  // RFC3339Nano timestamp, empty for root
   currentPage: number;     // 0-indexed, only meaningful for type=DocumentType
   parent: string;          // parent ID, empty string for root children
+  tags: string[];          // A list of tags. Note, this does -not- include per-page tags. Also works for directories
+  starred: boolean;        // Whether this item is starred or not. Also works for directories.
 }
 
 type LsOutput = Node[];
@@ -122,13 +124,15 @@ Use `cd` to change the current directory to any other directory in the hierarchy
 
 ## Find a file
 
+
 The find command can be used to search through all of your reMarkable files recursively. 
 The first argument is the directory, and the second argument is your search query.
 The search query is optional, when left out, the command will list files recursively.
 
-You can find files with a particular tag using the `--tag` parameter, and filter for starred files using the `--starred` parameter.
-
-See the examples below:
+- Flags:
+  - `--tag=<string>` only show files that include this tag. You can supply multiple tag parameters
+  - `--starred` if supplied, only show starred files
+  - `--json` show output in JSON, see the `ls` documentation for more detail
 
 ### Find examples
 
