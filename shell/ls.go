@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 	"time"
@@ -85,6 +86,45 @@ type LsOptions struct {
 	ShowTemplates bool
 }
 
+type NodeJSON struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Type           string `json:"type"`
+	Version        int    `json:"version"`
+	ModifiedClient string `json:"modifiedClient,omitempty"`
+	CurrentPage    int    `json:"currentPage,omitempty"`
+	Parent         string `json:"parent,omitempty"`
+	IsDirectory    bool   `json:"isDirectory"`
+}
+
+func nodeToJSON(node *model.Node) NodeJSON {
+	return NodeJSON{
+		ID:             node.Document.ID,
+		Name:           node.Document.Name,
+		Type:           node.Document.Type,
+		Version:        node.Document.Version,
+		ModifiedClient: node.Document.ModifiedClient,
+		CurrentPage:    node.Document.CurrentPage,
+		Parent:         node.Document.Parent,
+		IsDirectory:    node.IsDirectory(),
+	}
+}
+
+func displayNodesJSON(c *ishell.Context, nodes []*model.Node) error {
+	jsonNodes := make([]NodeJSON, len(nodes))
+	for i, node := range nodes {
+		jsonNodes[i] = nodeToJSON(node)
+	}
+
+	output, err := json.MarshalIndent(jsonNodes, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	c.Println(string(output))
+	return nil
+}
+
 func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
 		Name:      "ls",
@@ -123,8 +163,14 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			sorted := sortNodes(filterNodes(nodes, d), d)
 
-			for _, e := range sorted {
-				displayNode(c, e, d)
+			if ctx.JSONOutput {
+				if err := displayNodesJSON(c, sorted); err != nil {
+					c.Err(err)
+				}
+			} else {
+				for _, e := range sorted {
+					displayNode(c, e, d)
+				}
 			}
 		},
 	}

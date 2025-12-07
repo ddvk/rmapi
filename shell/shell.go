@@ -15,6 +15,7 @@ type ShellCtxt struct {
 	path           string
 	useHiddenFiles bool
 	UserInfo       api.UserInfo
+	JSONOutput     bool
 }
 
 func (ctx *ShellCtxt) prompt() string {
@@ -41,7 +42,7 @@ func useHiddenFiles() bool {
 	return val != "0"
 }
 
-func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string) error {
+func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutput bool) error {
 	shell := ishell.New()
 	ctx := &ShellCtxt{
 		node:           apiCtx.Filetree().Root(),
@@ -49,6 +50,7 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string) error {
 		path:           apiCtx.Filetree().Root().Name(),
 		useHiddenFiles: useHiddenFiles(),
 		UserInfo:       *userInfo,
+		JSONOutput:     jsonOutput,
 	}
 
 	shell.SetPrompt(ctx.prompt())

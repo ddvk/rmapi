@@ -38,6 +38,7 @@ func parseOfflineCommands(cmd []string) bool {
 
 func main() {
 	ni := flag.Bool("ni", false, "not interactive (prevents asking for code)")
+	jsonOutput := flag.Bool("json", false, "output in JSON format")
 	flag.Usage = func() {
 		fmt.Println(`
   help		detailed commands, but the user needs to be logged in
@@ -79,7 +80,7 @@ Offline Commands:
 		log.Error.Fatal("failed to build documents tree, last error: ", err)
 	}
 
-	err = shell.RunShell(ctx, userInfo, otherFlags)
+	err = shell.RunShell(ctx, userInfo, otherFlags, *jsonOutput)
 
 	if err != nil {
 		log.Error.Println("Error: ", err)
