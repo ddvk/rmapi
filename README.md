@@ -97,6 +97,26 @@ Start the shell by running `rmapi`
 Use `ls` to list the contents of the current directory. Entries are listed with `[d]` if they
 are directories, and `[f]` if they are files.
 
+Alternatively, pass the `--json` flag and receive output in JSON.
+
+```json
+[
+  {
+    "id": "981bece1-fd9d-499d-9b89-e5b5e2d1da34",
+    "name": "Journal",
+    "type": "DocumentType",
+    "version": 0,
+    "modifiedClient": "2025-09-21T15:53:05Z",
+    "currentPage": -1,
+    "parent": "2dccadc5-65a3-440d-86bc-da96df1f8324",
+    "isDirectory": false
+  },
+  {
+   "...": "..."
+  }
+]
+```
+
 ## Change current directory
 
 Use `cd` to change the current directory to any other directory in the hierarchy.
