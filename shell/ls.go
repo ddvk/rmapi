@@ -91,10 +91,9 @@ type NodeJSON struct {
 	Name           string `json:"name"`
 	Type           string `json:"type"`
 	Version        int    `json:"version"`
-	ModifiedClient string `json:"modifiedClient,omitempty"`
-	CurrentPage    int    `json:"currentPage,omitempty"`
-	Parent         string `json:"parent,omitempty"`
-	IsDirectory    bool   `json:"isDirectory"`
+	ModifiedClient string `json:"modifiedClient"`
+	CurrentPage    int    `json:"currentPage"`
+	Parent         string `json:"parent"`
 }
 
 func nodeToJSON(node *model.Node) NodeJSON {
@@ -106,7 +105,6 @@ func nodeToJSON(node *model.Node) NodeJSON {
 		ModifiedClient: node.Document.ModifiedClient,
 		CurrentPage:    node.Document.CurrentPage,
 		Parent:         node.Document.Parent,
-		IsDirectory:    node.IsDirectory(),
 	}
 }
 
