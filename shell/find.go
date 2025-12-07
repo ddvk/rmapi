@@ -83,6 +83,10 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			}
 
+			// Collect matching nodes
+			var matchedNodes []*model.Node
+			var matchedPaths [][]string
+
 			filetree.WalkTree(startNode, filetree.FileTreeVistor{
 				Visit: func(node *model.Node, path []string) bool {
 					// Filter by starred status if flag was set
@@ -115,20 +119,30 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 					entryName := formatEntry(compact, path, node)
 
-					if matchRegexp == nil {
-						c.Println(entryName)
+					// Check regexp match if pattern is provided
+					if matchRegexp != nil && !matchRegexp.Match([]byte(entryName)) {
 						return false
 					}
 
-					if !matchRegexp.Match([]byte(entryName)) {
-						return false
-					}
-
-					c.Println(entryName)
+					// Collect matching node
+					matchedNodes = append(matchedNodes, node)
+					matchedPaths = append(matchedPaths, path)
 
 					return false
 				},
 			})
+
+			// Output results
+			if ctx.JSONOutput {
+				if err := displayNodesJSON(c, matchedNodes); err != nil {
+					c.Err(err)
+				}
+			} else {
+				for i, node := range matchedNodes {
+					entryName := formatEntry(compact, matchedPaths[i], node)
+					c.Println(entryName)
+				}
+			}
 		},
 	}
 }
