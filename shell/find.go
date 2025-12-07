@@ -45,7 +45,6 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 			argRest := flagSet.Args()
 
-			// Check if --starred flag was actually set
 			starredFilterEnabled := false
 			flagSet.Visit(func(f *flag.Flag) {
 				if f.Name == "starred" {
@@ -83,7 +82,6 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			}
 
-			// Collect matching nodes
 			var matchedNodes []*model.Node
 			var matchedPaths [][]string
 
@@ -96,7 +94,7 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 						}
 					}
 
-					// Filter by tags if specified (must have ANY of the tags - OR semantics)
+					// Filter by tags if specified - using OR semantics
 					if len(tags) > 0 && node.Document != nil {
 						nodeTags := node.Document.Tags
 						hasMatch := false
@@ -112,7 +110,6 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 							}
 						}
 						if !hasMatch {
-							// Doesn't have any of the required tags, skip this node
 							return false
 						}
 					}
@@ -124,7 +121,6 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 						return false
 					}
 
-					// Collect matching node
 					matchedNodes = append(matchedNodes, node)
 					matchedPaths = append(matchedPaths, path)
 
@@ -132,7 +128,6 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 				},
 			})
 
-			// Output results
 			if ctx.JSONOutput {
 				if err := displayNodesJSON(c, matchedNodes); err != nil {
 					c.Err(err)
