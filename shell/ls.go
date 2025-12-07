@@ -93,6 +93,7 @@ type NodeJSON struct {
 	Version        int    `json:"version"`
 	ModifiedClient string `json:"modifiedClient"`
 	CurrentPage    int    `json:"currentPage"`
+	Starred        bool   `json:"starred"`
 	Parent         string `json:"parent"`
 }
 
@@ -104,6 +105,7 @@ func nodeToJSON(node *model.Node) NodeJSON {
 		Version:        node.Document.Version,
 		ModifiedClient: node.Document.ModifiedClient,
 		CurrentPage:    node.Document.CurrentPage,
+		Starred:        node.Document.Starred,
 		Parent:         node.Document.Parent,
 	}
 }
