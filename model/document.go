@@ -15,6 +15,7 @@ type Document struct {
 	CurrentPage    int
 	Starred        bool
 	Parent         string
+	Tags           []string
 }
 
 type BlobRootStorageRequest struct {

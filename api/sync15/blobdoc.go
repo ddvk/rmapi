@@ -22,6 +22,7 @@ type BlobDoc struct {
 	Files []*Entry
 	Entry
 	Metadata archive.MetadataFile
+	Content  archive.Content
 }
 
 func NewBlobDoc(name, documentId, colType, parentId string) *BlobDoc {
@@ -142,6 +143,43 @@ func (d *BlobDoc) ReadMetadata(fileEntry *Entry, r RemoteStorage) error {
 		d.Metadata = metadata
 	}
 
+	if strings.HasSuffix(fileEntry.DocumentID, ".content") {
+		log.Trace.Println("Reading content: " + d.DocumentID)
+
+		contentData := archive.Content{}
+
+		contentReader, err := r.GetReader(fileEntry.Hash, fileEntry.DocumentID)
+		if err != nil {
+			log.Warning.Printf("cannot get content reader %s: %v", fileEntry.DocumentID, err)
+			return nil
+		}
+		defer contentReader.Close()
+
+		contentBytes, err := io.ReadAll(contentReader)
+		if err != nil {
+			log.Warning.Printf("cannot read content bytes %s: %v", fileEntry.DocumentID, err)
+			return nil
+		}
+
+		err = json.Unmarshal(contentBytes, &contentData)
+		if err != nil {
+			log.Warning.Printf("cannot parse content JSON %s: %v", fileEntry.DocumentID, err)
+			return nil
+		}
+
+		// Ensure nil slices become empty arrays
+		if contentData.DocumentTags == nil {
+			contentData.DocumentTags = []archive.Tag{}
+		}
+		if contentData.PageTags == nil {
+			contentData.PageTags = []archive.PageTag{}
+		}
+
+		log.Trace.Printf("parsed content for %s: %d document tags, %d page tags",
+			d.DocumentID, len(contentData.DocumentTags), len(contentData.PageTags))
+		d.Content = contentData
+	}
+
 	return nil
 }
 
@@ -236,6 +274,12 @@ func (d *BlobDoc) ToDocument() *model.Document {
 		t := time.Unix(unixTime/1000, 0)
 		lastModified = t.UTC().Format(time.RFC3339Nano)
 	}
+
+	tags := []string{}
+	for _, tag := range d.Content.DocumentTags {
+		tags = append(tags, tag.Name)
+	}
+
 	return &model.Document{
 		ID:             d.DocumentID,
 		Name:           d.Metadata.DocName,
@@ -245,5 +289,6 @@ func (d *BlobDoc) ToDocument() *model.Document {
 		CurrentPage:    d.Metadata.LastOpenedPage,
 		Starred:        d.Metadata.Pinned,
 		ModifiedClient: lastModified,
+		Tags:           tags,
 	}
 }

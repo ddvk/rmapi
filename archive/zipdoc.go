@@ -193,7 +193,7 @@ func createZipContent(ext string, pageIDs []string, coverpage *int) (string, err
 		LineHeight:     -1,
 		Margins:        180,
 		TextScale:      1,
-		Transform: Transform{
+		Transform: &Transform{
 			M11: 1,
 			M12: 0,
 			M13: 0,
@@ -204,7 +204,7 @@ func createZipContent(ext string, pageIDs []string, coverpage *int) (string, err
 			M32: 0,
 			M33: 1,
 		},
-		Pages: pageIDs,
+		Pages:           pageIDs,
 		CoverPageNumber: coverpage,
 	}
 
