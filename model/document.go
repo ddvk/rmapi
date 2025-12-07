@@ -13,6 +13,7 @@ type Document struct {
 	ModifiedClient string
 	Type           string
 	CurrentPage    int
+	Starred        bool
 	Parent         string
 }
 

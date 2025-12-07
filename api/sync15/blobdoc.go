@@ -243,6 +243,7 @@ func (d *BlobDoc) ToDocument() *model.Document {
 		Parent:         d.Metadata.Parent,
 		Type:           d.Metadata.CollectionType,
 		CurrentPage:    d.Metadata.LastOpenedPage,
+		Starred:        d.Metadata.Pinned,
 		ModifiedClient: lastModified,
 	}
 }
