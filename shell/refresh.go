@@ -11,22 +11,22 @@ func refreshCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Name: "refresh",
 		Help: "refreshes the tree with remote changes",
 		Func: func(c *ishell.Context) {
-			has, gen, err := ctx.api.Refresh()
+			has, gen, err := ctx.Api.Refresh()
 			if err != nil {
 				c.Err(err)
 				return
 			}
 			c.Printf("root hash: %s\ngeneration: %d\n", has, gen)
-			n, err := ctx.api.Filetree().NodeByPath(ctx.path, nil)
+			n, err := ctx.Api.Filetree().NodeByPath(ctx.Path, nil)
 			if err != nil {
 				c.Err(errors.New("current path is invalid"))
 
-				ctx.node = ctx.api.Filetree().Root()
-				ctx.path = ctx.node.Name()
+				ctx.Node = ctx.Api.Filetree().Root()
+				ctx.Path = ctx.Node.Name()
 				c.SetPrompt(ctx.prompt())
 				return
 			}
-			ctx.node = n
+			ctx.Node = n
 		},
 	}
 }

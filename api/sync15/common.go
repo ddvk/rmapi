@@ -30,12 +30,32 @@ func HashEntries(entries []*Entry) (string, error) {
 func getCachedTreePath() (string, error) {
 	cachedir, err := os.UserCacheDir()
 	if err != nil {
-		return "", err
+		// Fallback to home directory if cache dir cannot be determined
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		rmapiFolder := path.Join(home, ".rmapi-cache")
+		if err := os.MkdirAll(rmapiFolder, 0700); err != nil {
+			return "", err
+		}
+		cacheFile := path.Join(rmapiFolder, "tree.cache")
+		return cacheFile, nil
 	}
 	rmapiFolder := path.Join(cachedir, "rmapi")
 	err = os.MkdirAll(rmapiFolder, 0700)
 	if err != nil {
-		return "", err
+		// Fallback to home directory if cache dir cannot be created
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		rmapiFolder := path.Join(home, ".rmapi-cache")
+		if err := os.MkdirAll(rmapiFolder, 0700); err != nil {
+			return "", err
+		}
+		cacheFile := path.Join(rmapiFolder, "tree.cache")
+		return cacheFile, nil
 	}
 	cacheFile := path.Join(rmapiFolder, "tree.cache")
 	return cacheFile, nil

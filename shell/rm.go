@@ -29,7 +29,7 @@ func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 
 			for _, target := range argRest {
-				nodes, err := ctx.api.Filetree().NodesByPath(target, ctx.node, false)
+				nodes, err := ctx.Api.Filetree().NodesByPath(target, ctx.Node, false)
 
 				if err != nil {
 					c.Err(err)
@@ -37,18 +37,18 @@ func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 				for _, node := range nodes {
 					c.Println("deleting: ", node.Name())
-					err = ctx.api.DeleteEntry(node, *recursive, true)
+					err = ctx.Api.DeleteEntry(node, *recursive, true)
 
 					if err != nil {
 						c.Err(fmt.Errorf("failed to delete entry, %v", err))
 						return
 					}
 
-					ctx.api.Filetree().DeleteNode(node)
+					ctx.Api.Filetree().DeleteNode(node)
 				}
 			}
 
-			err := ctx.api.SyncComplete()
+			err := ctx.Api.SyncComplete()
 			if err != nil {
 				c.Err(err)
 			}

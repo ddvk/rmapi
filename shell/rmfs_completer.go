@@ -10,7 +10,7 @@ import (
 )
 
 func prefixToNodeDir(ctx *ShellCtxt, s []string) (*model.Node, string) {
-	node := ctx.node
+	node := ctx.Node
 	isPrefix := len(s) > 0 && s[len(s)-1] != ""
 
 	log.Trace.Println("isPrefix", isPrefix)
@@ -23,7 +23,7 @@ func prefixToNodeDir(ctx *ShellCtxt, s []string) (*model.Node, string) {
 
 	log.Trace.Println("prefix", prefix)
 
-	node, err := ctx.api.Filetree().NodeByPath(prefix, ctx.node)
+	node, err := ctx.Api.Filetree().NodeByPath(prefix, ctx.Node)
 
 	// Prefix matches an entry
 	if err == nil {
@@ -41,14 +41,14 @@ func prefixToNodeDir(ctx *ShellCtxt, s []string) (*model.Node, string) {
 	log.Trace.Println("base", base)
 
 	if base == prefix {
-		return ctx.node, ""
+		return ctx.Node, ""
 	}
 
 	dir := path.Dir(prefix)
 
 	log.Trace.Println("dir", dir)
 
-	node, err = ctx.api.Filetree().NodeByPath(dir, ctx.node)
+	node, err = ctx.Api.Filetree().NodeByPath(dir, ctx.Node)
 
 	if err != nil {
 		return nil, ""

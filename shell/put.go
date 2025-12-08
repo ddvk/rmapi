@@ -78,30 +78,30 @@ Options:
 				}
 
 				docName, _ := util.DocPathToName(srcName)
-				node := ctx.node
+				node := ctx.Node
 				var err error
 
 				// Parse destination directory if provided
 				if len(args) == 2 {
-					node, err = ctx.api.Filetree().NodeByPath(args[1], ctx.node)
+					node, err = ctx.Api.Filetree().NodeByPath(args[1], ctx.Node)
 					if err != nil || node.IsFile() {
 						c.Err(errors.New("directory doesn't exist"))
 						return
 					}
 				}
 
-				existingNode, err := ctx.api.Filetree().NodeByPath(docName, node)
+				existingNode, err := ctx.Api.Filetree().NodeByPath(docName, node)
 				if err != nil {
 					// Document doesn't exist, create new one
 					c.Printf("uploading: [%s]...", srcName)
 					dstDir := node.Id()
-					document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+					document, err := ctx.Api.UploadDocument(dstDir, srcName, true, coverpageFlag)
 					if err != nil {
 						c.Err(fmt.Errorf("failed to upload file [%s]: %v", srcName, err))
 						return
 					}
 					c.Println("OK")
-					ctx.api.Filetree().AddDocument(document)
+					ctx.Api.Filetree().AddDocument(document)
 					return
 				}
 
@@ -111,7 +111,7 @@ Options:
 				}
 
 				c.Printf("replacing PDF content of [%s] with [%s]...", docName, srcName)
-				if err := ctx.api.ReplaceDocumentFile(existingNode.Document.ID, srcName, true); err != nil {
+				if err := ctx.Api.ReplaceDocumentFile(existingNode.Document.ID, srcName, true); err != nil {
 					c.Err(fmt.Errorf("failed to replace content: %v", err))
 					return
 				}
@@ -121,12 +121,12 @@ Options:
 
 			// Handle regular upload or --force mode
 			docName, _ := util.DocPathToName(srcName)
-			node := ctx.node
+			node := ctx.Node
 			var err error
 
 			// Parse destination directory if provided
 			if len(args) == 2 {
-				node, err = ctx.api.Filetree().NodeByPath(args[1], ctx.node)
+				node, err = ctx.Api.Filetree().NodeByPath(args[1], ctx.Node)
 				if err != nil || node.IsFile() {
 					c.Err(errors.New("directory doesn't exist"))
 					return
@@ -134,7 +134,7 @@ Options:
 			}
 
 			// Check if file exists and handle --force
-			existingNode, err := ctx.api.Filetree().NodeByPath(docName, node)
+			existingNode, err := ctx.Api.Filetree().NodeByPath(docName, node)
 			if err == nil {
 				// File exists
 				if !*force {
@@ -149,29 +149,29 @@ Options:
 				c.Printf("replacing: [%s]...", srcName)
 
 				// Delete existing document
-				if err := ctx.api.DeleteEntry(existingNode, false, false); err != nil {
+				if err := ctx.Api.DeleteEntry(existingNode, false, false); err != nil {
 					c.Err(fmt.Errorf("failed to delete existing file: %v", err))
 					return
 				}
-				ctx.api.Filetree().DeleteNode(existingNode)
+				ctx.Api.Filetree().DeleteNode(existingNode)
 
 				// Upload new document
 				dstDir := node.Id()
-				document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+				document, err := ctx.Api.UploadDocument(dstDir, srcName, true, coverpageFlag)
 				if err != nil {
 					c.Err(fmt.Errorf("failed to upload replacement file [%s]: %v", srcName, err))
 					return
 				}
 
 				c.Println("OK")
-				ctx.api.Filetree().AddDocument(document)
+				ctx.Api.Filetree().AddDocument(document)
 				return
 			}
 
 			// File doesn't exist, upload new document
 			c.Printf("uploading: [%s]...", srcName)
 			dstDir := node.Id()
-			document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+			document, err := ctx.Api.UploadDocument(dstDir, srcName, true, coverpageFlag)
 
 			if err != nil {
 				c.Err(fmt.Errorf("failed to upload file [%s] %v", srcName, err))
@@ -180,7 +180,7 @@ Options:
 
 			c.Println("OK")
 
-			ctx.api.Filetree().AddDocument(document)
+			ctx.Api.Filetree().AddDocument(document)
 		},
 	}
 }

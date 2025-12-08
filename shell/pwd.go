@@ -7,7 +7,7 @@ func pwdCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Name: "pwd",
 		Help: "print current directory",
 		Func: func(c *ishell.Context) {
-			c.Println(ctx.path)
+			c.Println(ctx.Path)
 		},
 	}
 }

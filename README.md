@@ -42,6 +42,33 @@ brew install io41/tap/rmapi
 
 ## Docker
 
+### Using Docker Compose (Recommended)
+
+The easiest way to run rmapi with Docker is using docker-compose:
+
+```bash
+# Build and run interactively
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d
+
+# Run a specific command
+docker-compose run --rm rmapi help
+
+# Access the shell
+docker-compose run --rm rmapi
+```
+
+The docker-compose setup automatically mounts:
+- `./io-backup/config` → config directory (authentication tokens)
+- `./io-backup/downloads` → downloads directory (files from `geta`, `get`, `mget`)
+- `./io-backup/cache` → cache directory (tree cache)
+
+The entrypoint script ensures the container can write to these directories.
+
+### Using Docker directly
+
 First clone this repository, then build a local container like
 
 ```
@@ -58,6 +85,14 @@ and run by mounting the .config/rmapi folder
 
 ```
 docker run -v $HOME/.config/rmapi/:/home/app/.config/rmapi/ -it rmapi
+```
+
+To make downloaded files (including files downloaded with `geta`) accessible on your host machine, also mount the downloads directory:
+
+```
+docker run -v $HOME/.config/rmapi/:/home/app/.config/rmapi/ \
+           -v $HOME/rmapi-downloads:/home/app/downloads \
+           -it rmapi
 ```
 
 Issue non-interactive commands by appending to the `docker run` command:
