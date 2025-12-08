@@ -7,7 +7,7 @@ ARG TARGETPLATFORM
 RUN xx-apk add --no-cache musl-dev gcc
 
 WORKDIR /src
-COPY rmapi .
+COPY . .
 RUN xx-go --wrap && \
     CGO_ENABLED=0 xx-go build -ldflags="-s -w" -o rmapi .
 
@@ -23,7 +23,7 @@ RUN adduser -D app && \
     chown -R app:app /home/app/downloads
 
 # Copy entrypoint script
-COPY rmapi/docker-entrypoint.sh /usr/local/bin/
+COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 WORKDIR /home/app/downloads
