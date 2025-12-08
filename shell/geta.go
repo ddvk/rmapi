@@ -34,7 +34,7 @@ func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			srcName := argRest[0]
 
-			node, err := ctx.api.Filetree().NodeByPath(srcName, ctx.node)
+			node, err := ctx.Api.Filetree().NodeByPath(srcName, ctx.Node)
 
 			if err != nil || node.IsDirectory() {
 				c.Err(errors.New("file doesn't exist"))
@@ -44,7 +44,7 @@ func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 			c.Println(fmt.Sprintf("downloading: [%s]...", srcName))
 
 			zipName := fmt.Sprintf("%s.zip", node.Name())
-			err = ctx.api.FetchDocument(node.Document.ID, zipName)
+			err = ctx.Api.FetchDocument(node.Document.ID, zipName)
 
 			if err != nil {
 				c.Err(errors.New(fmt.Sprintf("Failed to download file %s with %s", srcName, err.Error())))

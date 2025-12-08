@@ -10,16 +10,16 @@ import (
 )
 
 type ShellCtxt struct {
-	node           *model.Node
-	api            api.ApiCtx
-	path           string
-	useHiddenFiles bool
+	Node           *model.Node
+	Api            api.ApiCtx
+	Path           string
+	UseHiddenFiles bool
 	UserInfo       api.UserInfo
 	JSONOutput     bool
 }
 
 func (ctx *ShellCtxt) prompt() string {
-	return fmt.Sprintf("[%s]>", ctx.path)
+	return fmt.Sprintf("[%s]>", ctx.Path)
 }
 
 func setCustomCompleter(shell *ishell.Shell) {
@@ -32,7 +32,7 @@ func setCustomCompleter(shell *ishell.Shell) {
 	shell.CustomCompleter(completer)
 }
 
-func useHiddenFiles() bool {
+func UseHiddenFiles() bool {
 	val, ok := os.LookupEnv("RMAPI_USE_HIDDEN_FILES")
 
 	if !ok {
@@ -45,10 +45,10 @@ func useHiddenFiles() bool {
 func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutput bool) error {
 	shell := ishell.New()
 	ctx := &ShellCtxt{
-		node:           apiCtx.Filetree().Root(),
-		api:            apiCtx,
-		path:           apiCtx.Filetree().Root().Name(),
-		useHiddenFiles: useHiddenFiles(),
+		Node:           apiCtx.Filetree().Root(),
+		Api:            apiCtx,
+		Path:           apiCtx.Filetree().Root().Name(),
+		UseHiddenFiles: UseHiddenFiles(),
 		UserInfo:       *userInfo,
 		JSONOutput:     jsonOutput,
 	}
@@ -59,6 +59,7 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutp
 	shell.AddCmd(pwdCmd(ctx))
 	shell.AddCmd(cdCmd(ctx))
 	shell.AddCmd(getCmd(ctx))
+	shell.AddCmd(convertCmd(ctx))
 	shell.AddCmd(mgetCmd(ctx))
 	shell.AddCmd(mkdirCmd(ctx))
 	shell.AddCmd(rmCmd(ctx))

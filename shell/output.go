@@ -19,7 +19,7 @@ type NodeJSON struct {
 	Tags           []string `json:"tags"`
 }
 
-func nodeToJSON(node *model.Node) NodeJSON {
+func NodeToJSON(node *model.Node) NodeJSON {
 	return NodeJSON{
 		ID:             node.Document.ID,
 		Name:           node.Document.Name,
@@ -36,7 +36,7 @@ func nodeToJSON(node *model.Node) NodeJSON {
 func displayNodesJSON(c *ishell.Context, nodes []*model.Node) error {
 	jsonNodes := make([]NodeJSON, len(nodes))
 	for i, node := range nodes {
-		jsonNodes[i] = nodeToJSON(node)
+		jsonNodes[i] = NodeToJSON(node)
 	}
 
 	output, err := json.MarshalIndent(jsonNodes, "", "  ")

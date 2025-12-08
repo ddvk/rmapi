@@ -18,3 +18,11 @@ test_writer.zip
 .glide/
 .vscode/
 
+# Docker volume directories (ignore contents, keep directory structure)
+io-backup/config/*
+!io-backup/config/.gitkeep
+io-backup/downloads/*
+!io-backup/downloads/.gitkeep
+io-backup/cache/*
+!io-backup/cache/.gitkeep
+

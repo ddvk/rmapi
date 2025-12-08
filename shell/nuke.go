@@ -22,13 +22,13 @@ func nukeCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 			fmt.Println("Nuking")
-			err = ctx.api.Nuke()
+			err = ctx.Api.Nuke()
 
 			if err != nil {
 				c.Err(fmt.Errorf("failed to delete entry: %v", err))
 				return
 			}
-			ctx.api.Filetree().Clear()
+			ctx.Api.Filetree().Clear()
 		},
 	}
 }

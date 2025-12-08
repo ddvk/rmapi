@@ -48,7 +48,8 @@ func ConfigPath() (string, error) {
 
 	xdgConfigDir := filepath.Join(configDir, appName)
 	if err := os.MkdirAll(xdgConfigDir, 0700); err != nil {
-		log.Error.Panicln("cannot create config dir "+xdgConfigDir, err)
+		log.Warning.Println("cannot create config dir "+xdgConfigDir+", using HOME", err)
+		return config, nil
 	}
 	config = filepath.Join(xdgConfigDir, defaultConfigFileXDG)
 

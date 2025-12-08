@@ -60,13 +60,13 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 			case 1:
 				start = argRest[0]
 			case 0:
-				start = ctx.path
+				start = ctx.Path
 			default:
 				c.Err(errors.New("missing arguments; usage find [options] [dir] [regexp]"))
 				return
 			}
 
-			startNode, err := ctx.api.Filetree().NodeByPath(start, ctx.node)
+			startNode, err := ctx.Api.Filetree().NodeByPath(start, ctx.Node)
 
 			if err != nil {
 				c.Err(errors.New("start directory doesn't exist"))
@@ -114,7 +114,7 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 						}
 					}
 
-					entryName := formatEntry(compact, path, node)
+					entryName := FormatEntry(compact, path, node)
 
 					// Check regexp match if pattern is provided
 					if matchRegexp != nil && !matchRegexp.Match([]byte(entryName)) {
@@ -134,14 +134,14 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			} else {
 				for i, node := range matchedNodes {
-					entryName := formatEntry(compact, matchedPaths[i], node)
+					entryName := FormatEntry(compact, matchedPaths[i], node)
 					c.Println(entryName)
 				}
 			}
 		},
 	}
 }
-func formatEntry(compact bool, path []string, node *model.Node) string {
+func FormatEntry(compact bool, path []string, node *model.Node) string {
 	fullpath := filepath.Join(strings.Join(path, "/"), node.Name())
 	if compact {
 		if node.IsDirectory() {

@@ -10,7 +10,7 @@ import (
 	flag "github.com/ogier/pflag"
 )
 
-func filterNodes(in []*model.Node, options LsOptions) []*model.Node {
+func FilterNodes(in []*model.Node, options LsOptions) []*model.Node {
 	var filtered []*model.Node
 	if options.ShowTemplates {
 		filtered = in
@@ -25,7 +25,7 @@ func filterNodes(in []*model.Node, options LsOptions) []*model.Node {
 	return filtered
 }
 
-func sortNodes(in []*model.Node, options LsOptions) []*model.Node {
+func SortNodes(in []*model.Node, options LsOptions) []*model.Node {
 	sort.SliceStable(in, func(i, j int) bool {
 		if options.DirFirst {
 			if in[i].IsDirectory() && in[j].IsFile() {
@@ -109,11 +109,11 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			var nodes []*model.Node
 			if len(argRest) < 1 {
-				nodes = ctx.node.Nodes()
+				nodes = ctx.Node.Nodes()
 			} else {
 				var err error
 				target := argRest[0]
-				nodes, err = ctx.api.Filetree().NodesByPath(target, ctx.node, true)
+				nodes, err = ctx.Api.Filetree().NodesByPath(target, ctx.Node, true)
 
 				if err != nil {
 					c.Err(err)
@@ -121,7 +121,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 				}
 			}
 
-			sorted := sortNodes(filterNodes(nodes, d), d)
+			sorted := SortNodes(FilterNodes(nodes, d), d)
 
 			if ctx.JSONOutput {
 				if err := displayNodesJSON(c, sorted); err != nil {

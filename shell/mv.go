@@ -23,7 +23,7 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			src := c.Args[0]
 			dst := c.Args[1]
 
-			srcNodes, err := ctx.api.Filetree().NodesByPath(src, ctx.node, false)
+			srcNodes, err := ctx.Api.Filetree().NodesByPath(src, ctx.Node, false)
 
 			if err != nil {
 				c.Err(err)
@@ -34,7 +34,7 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			dstNode, _ := ctx.api.Filetree().NodeByPath(dst, ctx.node)
+			dstNode, _ := ctx.Api.Filetree().NodeByPath(dst, ctx.Node)
 
 			if dstNode != nil && dstNode.IsFile() {
 				c.Err(errors.New("destination entry already exists"))
@@ -44,21 +44,21 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			// We are moving the node to another directory
 			if dstNode != nil && dstNode.IsDirectory() {
 				for _, node := range srcNodes {
-					if isSubdir(node, dstNode) {
+					if IsSubdir(node, dstNode) {
 						c.Err(fmt.Errorf("cannot move: %s in itself", node.Name()))
 						return
 					}
 
-					n, err := ctx.api.MoveEntry(node, dstNode, node.Name())
+					n, err := ctx.Api.MoveEntry(node, dstNode, node.Name())
 
 					if err != nil {
 						c.Err(fmt.Errorf("failed to move entry %w", err))
 						return
 					}
 
-					ctx.api.Filetree().MoveNode(node, n)
+					ctx.Api.Filetree().MoveNode(node, n)
 				}
-				err = ctx.api.SyncComplete()
+				err = ctx.Api.SyncComplete()
 				if err != nil {
 					c.Err(fmt.Errorf("cannot notify, %w", err))
 				}
@@ -75,31 +75,31 @@ func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
 			parentDir := path.Dir(dst)
 			newEntry := path.Base(dst)
 
-			parentNode, err := ctx.api.Filetree().NodeByPath(parentDir, ctx.node)
+			parentNode, err := ctx.Api.Filetree().NodeByPath(parentDir, ctx.Node)
 
 			if err != nil || parentNode.IsFile() {
 				c.Err(fmt.Errorf("cannot move, %w", err))
 				return
 			}
 
-			n, err := ctx.api.MoveEntry(srcNode, parentNode, newEntry)
+			n, err := ctx.Api.MoveEntry(srcNode, parentNode, newEntry)
 
 			if err != nil {
 				c.Err(fmt.Errorf("failed to move entry, %w", err))
 				return
 			}
-			err = ctx.api.SyncComplete()
+			err = ctx.Api.SyncComplete()
 			if err != nil {
 				c.Err(fmt.Errorf("cannot notify, %w", err))
 			}
 
-			ctx.api.Filetree().MoveNode(srcNode, n)
+			ctx.Api.Filetree().MoveNode(srcNode, n)
 		},
 	}
 }
 
-// isSubdir check for moves e.g. a in a/sub1 which result in data loss
-func isSubdir(parent *model.Node, child *model.Node) bool {
+// IsSubdir check for moves e.g. a in a/sub1 which result in data loss
+func IsSubdir(parent *model.Node, child *model.Node) bool {
 	for child != nil {
 		if parent.Id() == child.Id() {
 			return true

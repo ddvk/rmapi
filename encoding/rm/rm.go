@@ -44,12 +44,14 @@ type Version int
 const (
 	V3 Version = iota
 	V5
+	V6
 )
 
 // Header starting a .rm binary file. This can help recognizing a .rm file.
 const (
 	HeaderV3  = "reMarkable .lines file, version=3          "
 	HeaderV5  = "reMarkable .lines file, version=5          "
+	HeaderV6  = "reMarkable .lines file, version=6          "
 	HeaderLen = 43
 )
 

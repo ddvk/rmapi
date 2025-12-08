@@ -46,7 +46,7 @@ func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 			}
 			srcName := argRest[0]
 
-			node, err := ctx.api.Filetree().NodeByPath(srcName, ctx.node)
+			node, err := ctx.Api.Filetree().NodeByPath(srcName, ctx.Node)
 
 			if err != nil || node.IsFile() {
 				c.Err(errors.New("directory doesn't exist"))
@@ -96,7 +96,7 @@ func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 					c.Printf("downloading [%s]...", dst)
 
-					err = ctx.api.FetchDocument(currentNode.Document.ID, dst)
+					err = ctx.Api.FetchDocument(currentNode.Document.ID, dst)
 
 					if err == nil {
 						c.Println(" OK")

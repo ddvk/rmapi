@@ -37,6 +37,8 @@ func parseOfflineCommands(cmd []string) bool {
 }
 
 func main() {
+	serverMode := flag.Bool("server", false, "Run as HTTP server")
+	port := flag.String("port", "8080", "Server port (only used with --server)")
 	ni := flag.Bool("ni", false, "not interactive (prevents asking for code)")
 	jsonOutput := flag.Bool("json", false, "output in JSON format")
 	flag.Usage = func() {
@@ -50,6 +52,12 @@ Offline Commands:
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	
+	if *serverMode {
+		runServerMode(*port)
+		return
+	}
+	
 	otherFlags := flag.Args()
 	if parseOfflineCommands(otherFlags) {
 		return

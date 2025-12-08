@@ -7,14 +7,31 @@ ARG TARGETPLATFORM
 RUN xx-apk add --no-cache musl-dev gcc
 
 WORKDIR /src
-COPY . .
+COPY rmapi .
 RUN xx-go --wrap && \
     CGO_ENABLED=0 xx-go build -ldflags="-s -w" -o rmapi .
 
 FROM alpine:latest
 
-RUN adduser -D app
-USER app
+RUN adduser -D app && \
+    apk add --no-cache su-exec && \
+    mkdir -p /home/app/.config/rmapi && \
+    mkdir -p /home/app/.cache/rmapi && \
+    mkdir -p /home/app/downloads && \
+    chown -R app:app /home/app/.config && \
+    chown -R app:app /home/app/.cache && \
+    chown -R app:app /home/app/downloads
+
+# Copy entrypoint script
+COPY rmapi/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+WORKDIR /home/app/downloads
 
 COPY --from=builder /src/rmapi /usr/local/bin/rmapi
-ENTRYPOINT ["rmapi"] 
+
+# Expose the REST API port
+EXPOSE 8080
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["rmapi"] 
