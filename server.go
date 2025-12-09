@@ -117,6 +117,83 @@ func (s *ApiServer) initialize() error {
 	return nil
 }
 
+// refreshTokens refreshes the user token and recreates the API context
+func (s *ApiServer) refreshTokens() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	configPath, err := config.ConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get config path: %v", err)
+	}
+	
+	authTokens := config.LoadTokens(configPath)
+	if authTokens.DeviceToken == "" {
+		return fmt.Errorf("no device token found")
+	}
+	
+	// Create HTTP context with existing device token
+	httpClientCtx := transport.CreateHttpClientCtx(authTokens)
+	
+	// Refresh user token
+	userToken, err := api.NewUserToken(&httpClientCtx)
+	if err != nil {
+		return fmt.Errorf("failed to refresh user token: %v", err)
+	}
+	
+	// Save refreshed token
+	authTokens.UserToken = userToken
+	config.SaveTokens(configPath, authTokens)
+	httpClientCtx.Tokens.UserToken = userToken
+	
+	// Parse token to get user info
+	userInfo, err := api.ParseToken(userToken)
+	if err != nil {
+		return fmt.Errorf("failed to parse refreshed token: %v", err)
+	}
+	
+	// Recreate API context with refreshed token
+	ctx, err := api.CreateApiCtx(&httpClientCtx, userInfo.SyncVersion)
+	if err != nil {
+		return fmt.Errorf("failed to recreate API context: %v", err)
+	}
+	
+	// Update shell context
+	shellCtx := &shell.ShellCtxt{
+		Node:           ctx.Filetree().Root(),
+		Api:            ctx,
+		Path:           ctx.Filetree().Root().Name(),
+		UseHiddenFiles: shell.UseHiddenFiles(),
+		UserInfo:       *userInfo,
+		JSONOutput:     true,
+	}
+	
+	s.ctx = ctx
+	s.userInfo = userInfo
+	s.shellCtx = shellCtx
+	
+	log.Info.Println("Tokens refreshed successfully")
+	return nil
+}
+
+// fetchDocumentWithRetry fetches a document and automatically refreshes tokens if needed
+func (s *ApiServer) fetchDocumentWithRetry(docId, dstPath string) error {
+	err := s.ctx.FetchDocument(docId, dstPath)
+	if err != nil {
+		// Check if error is due to expired token (401 Unauthorized)
+		if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "Unauthorized") {
+			log.Info.Println("Token expired, attempting to refresh...")
+			if refreshErr := s.refreshTokens(); refreshErr != nil {
+				return fmt.Errorf("failed to refresh tokens: %v", refreshErr)
+			}
+			// Retry the fetch after token refresh
+			return s.ctx.FetchDocument(docId, dstPath)
+		}
+		return err
+	}
+	return nil
+}
+
 func (s *ApiServer) isAuthenticated() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -450,7 +527,7 @@ func (s *ApiServer) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputPath := fmt.Sprintf("%s.%s", node.Name(), util.RMDOC)
-	err = s.ctx.FetchDocument(node.Document.ID, outputPath)
+	err = s.fetchDocumentWithRetry(node.Document.ID, outputPath)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to download file: %v", err))
 		return
@@ -517,7 +594,7 @@ func (s *ApiServer) handleConvert(w http.ResponseWriter, r *http.Request) {
 	rmdocPath := tmpFile.Name()
 	defer os.Remove(rmdocPath)
 
-	err = s.ctx.FetchDocument(node.Document.ID, rmdocPath)
+	err = s.fetchDocumentWithRetry(node.Document.ID, rmdocPath)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to download file: %v", err))
 		return
@@ -680,7 +757,7 @@ func (s *ApiServer) handleHwr(w http.ResponseWriter, r *http.Request) {
 	rmdocPath := tmpFile.Name()
 	defer os.Remove(rmdocPath)
 
-	err = s.ctx.FetchDocument(node.Document.ID, rmdocPath)
+	err = s.fetchDocumentWithRetry(node.Document.ID, rmdocPath)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to download file: %v", err))
 		return
