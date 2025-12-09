@@ -983,6 +983,10 @@ func (s *ApiServer) handleRm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !s.requireAuth(w, r) {
+		return
+	}
+
 	query := r.URL.Query()
 	path := query.Get("path")
 	if path == "" {
