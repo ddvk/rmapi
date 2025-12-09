@@ -735,8 +735,9 @@ func (s *ApiServer) handleHwr(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 		zipWriter := zip.NewWriter(w)
-		defer zipWriter.Close()
-
+		
+		// Write all files to ZIP
+		writtenCount := 0
 		for pageNum, text := range textContent {
 			filename := fmt.Sprintf("%s_page_%d.txt", baseNameWithoutExt, pageNum)
 			fileWriter, err := zipWriter.Create(filename)
@@ -744,7 +745,22 @@ func (s *ApiServer) handleHwr(w http.ResponseWriter, r *http.Request) {
 				log.Trace.Printf("Failed to create zip entry %s: %v", filename, err)
 				continue
 			}
-			fileWriter.Write([]byte(text))
+			if _, err := fileWriter.Write([]byte(text)); err != nil {
+				log.Trace.Printf("Failed to write zip entry %s: %v", filename, err)
+				continue
+			}
+			writtenCount++
+		}
+		
+		// Close the ZIP writer to finalize the archive
+		if err := zipWriter.Close(); err != nil {
+			log.Trace.Printf("Failed to close zip writer: %v", err)
+			// Can't write error response here as headers are already sent
+			return
+		}
+		
+		if writtenCount == 0 {
+			log.Trace.Printf("Warning: No files written to ZIP")
 		}
 		return
 	}
