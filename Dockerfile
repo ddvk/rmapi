@@ -7,7 +7,16 @@ ARG TARGETPLATFORM
 RUN xx-apk add --no-cache musl-dev gcc
 
 WORKDIR /src
+
+# Copy go mod files first for dependency caching
+COPY go.mod go.sum ./
+# Download dependencies (this layer will be cached unless go.mod/go.sum change)
+RUN go mod download
+
+# Copy the rest of the source code
 COPY . .
+
+# Build the application
 RUN xx-go --wrap && \
     CGO_ENABLED=0 xx-go build -ldflags="-s -w" -o rmapi .
 
