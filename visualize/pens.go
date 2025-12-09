@@ -215,6 +215,20 @@ func (pr *PenRenderer) calculatePencilWidth(speed, direction, width, pressure fl
 // calculateBrushColor calculates color intensity for brush pen type.
 // Brush color intensity varies with pressure and speed, creating a watercolor effect.
 func (pr *PenRenderer) calculateBrushColor(speed, pressure float32) [3]uint8 {
+	// Special handling for white brush: use a light gray to make it visible on white background
+	// White brush strokes are typically used for erasing/highlighting, so we render them as visible gray
+	if pr.baseColor[0] == 255 && pr.baseColor[1] == 255 && pr.baseColor[2] == 255 {
+		// Use a light gray so it's visible on white background
+		// Intensity modulates between lighter and darker gray based on pressure
+		intensity := float64((math.Pow(float64(pressure), 1.5) - 0.2*((float64(speed)/4)/50)) * 1.5)
+		intensity = clamp(intensity)
+		// Higher pressure = more visible (darker gray), lower pressure = lighter gray
+		// Range from 250 (subtle) to 235 (clearly visible)
+		grayValue := uint8(250 - (intensity * 15))
+		return [3]uint8{grayValue, grayValue, grayValue}
+	}
+	
+	// For non-white colors, use the original watercolor effect formula
 	intensity := float64((math.Pow(float64(pressure), 1.5) - 0.2*((float64(speed)/4)/50)) * 1.5)
 	intensity = clamp(intensity)
 	revIntensity := math.Abs(intensity - 1)

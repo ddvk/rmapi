@@ -60,6 +60,7 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutp
 	shell.AddCmd(cdCmd(ctx))
 	shell.AddCmd(getCmd(ctx))
 	shell.AddCmd(convertCmd(ctx))
+	shell.AddCmd(hwrCmd(ctx))
 	shell.AddCmd(mgetCmd(ctx))
 	shell.AddCmd(mkdirCmd(ctx))
 	shell.AddCmd(rmCmd(ctx))

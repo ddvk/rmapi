@@ -18,6 +18,7 @@ import (
 	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/filetree"
+	"github.com/juruen/rmapi/hwr"
 	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/shell"
@@ -592,7 +593,7 @@ func (s *ApiServer) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default behavior: write to disk
-	outputDir := "."
+	outputDir := "/home/app/downloads"
 	var convertedFiles []string
 
 	for i := 0; i < len(zipArchive.Pages); i++ {
@@ -612,6 +613,184 @@ func (s *ApiServer) handleConvert(w http.ResponseWriter, r *http.Request) {
 	s.writeSuccess(w, map[string]interface{}{
 		"message":        fmt.Sprintf("Converted %d page(s) to PNG", len(convertedFiles)),
 		"converted_files": convertedFiles,
+	})
+}
+
+// GET /api/hwr?path=<path>&type=<Text|Math|Diagram>&lang=<lang>&page=<N>&split=<bool>&inline=<bool>
+func (s *ApiServer) handleHwr(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	query := r.URL.Query()
+	srcName := query.Get("path")
+	if srcName == "" {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("path parameter is required"))
+		return
+	}
+
+	inputType := query.Get("type")
+	if inputType == "" {
+		inputType = "Text"
+	}
+
+	lang := query.Get("lang")
+	if lang == "" {
+		lang = "en_US"
+	}
+
+	page := -1
+	if pageStr := query.Get("page"); pageStr != "" {
+		fmt.Sscanf(pageStr, "%d", &page)
+	}
+
+	splitPages := query.Get("split") == "true"
+	inline := query.Get("inline") == "true"
+
+	// Check for API credentials
+	applicationKey := os.Getenv("RMAPI_HWR_APPLICATIONKEY")
+	if applicationKey == "" {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("RMAPI_HWR_APPLICATIONKEY environment variable is required"))
+		return
+	}
+	hmacKey := os.Getenv("RMAPI_HWR_HMAC")
+	if hmacKey == "" {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("RMAPI_HWR_HMAC environment variable is required"))
+		return
+	}
+
+	node, err := s.ctx.Filetree().NodeByPath(srcName, s.shellCtx.Node)
+	if err != nil || node.IsDirectory() {
+		s.writeError(w, http.StatusNotFound, fmt.Errorf("file doesn't exist"))
+		return
+	}
+
+	// Download the file to a temporary location
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("rmapi-*.%s", util.RMDOC))
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create temp file: %v", err))
+		return
+	}
+	tmpFile.Close()
+	rmdocPath := tmpFile.Name()
+	defer os.Remove(rmdocPath)
+
+	err = s.ctx.FetchDocument(node.Document.ID, rmdocPath)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to download file: %v", err))
+		return
+	}
+
+	// Load the archive
+	file, err := os.Open(rmdocPath)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to open file: %v", err))
+		return
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to stat file: %v", err))
+		return
+	}
+
+	file.Seek(0, 0)
+	zipArchive, err := shell.LoadArchive(file, fileInfo.Size())
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to read archive: %v", err))
+		return
+	}
+
+	baseNameWithoutExt := node.Name()
+
+	if inline {
+		// Inline mode: return ZIP file with TXT files
+		cfg := hwr.Config{
+			Page:      page,
+			Lang:      lang,
+			InputType: inputType,
+			BatchSize: 3,
+		}
+
+		textContent, err := hwr.HwrInline(zipArchive, cfg, applicationKey, hmacKey)
+		if err != nil {
+			s.writeError(w, http.StatusInternalServerError, fmt.Errorf("HWR failed: %v", err))
+			return
+		}
+
+		if len(textContent) == 0 {
+			s.writeError(w, http.StatusInternalServerError, fmt.Errorf("no pages were recognized"))
+			return
+		}
+
+		// If single page, return TXT directly
+		if len(textContent) == 1 {
+			var pageNum int
+			var text string
+			for p, t := range textContent {
+				pageNum = p
+				text = t
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s_page_%d.txt\"", baseNameWithoutExt, pageNum))
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(text))
+			return
+		}
+
+		// Multiple pages: return as ZIP file
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", baseNameWithoutExt))
+		w.WriteHeader(http.StatusOK)
+
+		zipWriter := zip.NewWriter(w)
+		defer zipWriter.Close()
+
+		for pageNum, text := range textContent {
+			filename := fmt.Sprintf("%s_page_%d.txt", baseNameWithoutExt, pageNum)
+			fileWriter, err := zipWriter.Create(filename)
+			if err != nil {
+				log.Trace.Printf("Failed to create zip entry %s: %v", filename, err)
+				continue
+			}
+			fileWriter.Write([]byte(text))
+		}
+		return
+	}
+
+	// Default behavior: write to disk
+	outputDir := "/home/app/downloads"
+	outputFile := filepath.Join(outputDir, baseNameWithoutExt)
+
+	cfg := hwr.Config{
+		Page:       page,
+		Lang:       lang,
+		InputType:  inputType,
+		OutputFile: outputFile,
+		SplitPages: splitPages,
+		BatchSize:  3,
+	}
+
+	outputFiles, err := hwr.Hwr(zipArchive, cfg, applicationKey, hmacKey)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("HWR failed: %v", err))
+		return
+	}
+
+	if len(outputFiles) == 0 {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("no output files were created"))
+		return
+	}
+
+	s.writeSuccess(w, map[string]interface{}{
+		"message":      fmt.Sprintf("Recognized %d page(s)", len(outputFiles)),
+		"output_files": outputFiles,
 	})
 }
 
@@ -1169,6 +1348,7 @@ func runServerMode(port string) {
 	mux.HandleFunc("/api/cd", server.handleCd)
 	mux.HandleFunc("/api/get", server.handleGet)
 	mux.HandleFunc("/api/convert", server.handleConvert)
+	mux.HandleFunc("/api/hwr", server.handleHwr)
 	mux.HandleFunc("/api/mkdir", server.handleMkdir)
 	mux.HandleFunc("/api/rm", server.handleRm)
 	mux.HandleFunc("/api/mv", server.handleMv)
@@ -1213,6 +1393,7 @@ func runServerMode(port string) {
 		<li>POST /api/cd - Change directory</li>
 		<li>GET /api/get - Download file</li>
 		<li>GET /api/convert - Convert file to PNG</li>
+		<li>GET /api/hwr - Perform handwriting recognition (requires RMAPI_HWR_APPLICATIONKEY and RMAPI_HWR_HMAC env vars). Use inline=true to stream ZIP file with TXT files</li>
 		<li>POST /api/mkdir - Create directory</li>
 		<li>DELETE /api/rm - Delete entry</li>
 		<li>POST /api/mv - Move/rename entry</li>
