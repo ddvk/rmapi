@@ -592,7 +592,7 @@ func (s *ApiServer) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default behavior: write to disk
-	outputDir := "."
+	outputDir := "/home/app/downloads"
 	var convertedFiles []string
 
 	for i := 0; i < len(zipArchive.Pages); i++ {
