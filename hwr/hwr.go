@@ -214,24 +214,82 @@ func HwrInline(zip *archive.Zip, cfg Config, applicationKey, hmacKey string) (ma
 	return textContent, nil
 }
 
-// downsamplePoints reduces the number of points in a stroke to reduce payload size
-// Uses adaptive sampling: keeps every Nth point based on stroke length
-func downsamplePoints(points []rm.Point) []rm.Point {
+// determineDownsampleRate calculates the appropriate downsampling rate based on estimated payload size
+func determineDownsampleRate(estimatedSize int, totalPoints int, numStrokes int) int {
+	const maxPayloadSize = 3500000 // Target 3.5MB to leave safety margin (limit is 4MB)
+	
+	// If estimated size is already under limit, use minimal downsampling
+	if estimatedSize < maxPayloadSize {
+		log.Trace.Printf("determineDownsampleRate: Estimated size %.2f MB is under limit, using minimal downsampling", 
+			float64(estimatedSize)/(1024*1024))
+		return 1 // Minimal downsampling (only for very long strokes)
+	}
+
+	// Calculate required reduction factor
+	reductionFactor := float64(estimatedSize) / float64(maxPayloadSize)
+	log.Trace.Printf("determineDownsampleRate: Need to reduce by factor of %.2f (estimated %.2f MB)", 
+		reductionFactor, float64(estimatedSize)/(1024*1024))
+
+	// Determine sample rate to achieve target size
+	// We need to reduce points by approximately the reduction factor
+	sampleRate := int(reductionFactor) + 1
+	
+	// Cap the maximum sample rate to avoid losing too much detail
+	if sampleRate > 8 {
+		sampleRate = 8
+		log.Trace.Printf("determineDownsampleRate: Capping sample rate at 8 to preserve stroke quality")
+	}
+
+	log.Trace.Printf("determineDownsampleRate: Using sample rate %d (will reduce %d points to ~%d points)", 
+		sampleRate, totalPoints, totalPoints/sampleRate)
+	
+	return sampleRate
+}
+
+// downsamplePointsWithRate reduces the number of points using a specific sample rate
+func downsamplePointsWithRate(points []rm.Point, sampleRate int) []rm.Point {
+	if len(points) <= 2 || sampleRate <= 1 {
+		// For very short strokes or no downsampling, apply minimal adaptive downsampling
+		return downsamplePointsAdaptive(points)
+	}
+
+	// Always keep first and last points
+	result := make([]rm.Point, 0, len(points)/sampleRate+2)
+	result = append(result, points[0]) // First point
+
+	// Sample middle points
+	for i := sampleRate; i < len(points)-1; i += sampleRate {
+		result = append(result, points[i])
+	}
+
+	// Always keep last point if different from first
+	if len(points) > 1 {
+		lastIdx := len(points) - 1
+		if lastIdx > 0 && (points[lastIdx].X != points[0].X || points[lastIdx].Y != points[0].Y) {
+			result = append(result, points[lastIdx])
+		}
+	}
+
+	return result
+}
+
+// downsamplePointsAdaptive reduces points based on stroke length (minimal downsampling)
+// Used when payload size is already acceptable
+func downsamplePointsAdaptive(points []rm.Point) []rm.Point {
 	if len(points) <= 2 {
 		return points // Keep all points for very short strokes
 	}
 
-	// Determine sampling rate based on stroke length
-	// Longer strokes need more aggressive downsampling to stay under 4MB limit
+	// Only apply minimal downsampling for extremely long strokes
 	sampleRate := 1
 	if len(points) > 2000 {
-		sampleRate = 6 // Very aggressive for extremely long strokes
+		sampleRate = 3 // Only for extremely long strokes
 	} else if len(points) > 1000 {
-		sampleRate = 4 // Keep every 4th point for very long strokes
-	} else if len(points) > 500 {
-		sampleRate = 3 // Keep every 3rd point for long strokes
-	} else if len(points) > 200 {
-		sampleRate = 2 // Keep every 2nd point for medium strokes
+		sampleRate = 2
+	}
+
+	if sampleRate == 1 {
+		return points // No downsampling needed
 	}
 
 	// Always keep first and last points
@@ -295,7 +353,14 @@ func getJSON(zip *archive.Zip, contenttype string, lang string, pageNumber int) 
 	log.Trace.Printf("getJSON: Page %d has %d layers", pageNumber, len(page.Data.Layers))
 	totalStrokes := 0
 	totalPoints := 0
+	originalTotalPoints := 0
 
+	// First pass: collect all strokes without downsampling to estimate size
+	allStrokes := make([]struct {
+		line        rm.Line
+		pointerType string
+	}, 0)
+	
 	for _, layer := range page.Data.Layers {
 		for _, line := range layer.Lines {
 			// Skip erase area strokes
@@ -314,56 +379,75 @@ func getJSON(zip *archive.Zip, contenttype string, lang string, pageNumber int) 
 				pointerType = "ERASER"
 			}
 
-			// Downsample points to reduce payload size
-			// Keep every Nth point, but always keep first and last
-			downsampledPoints := downsamplePoints(line.Points)
-			
-			// Create stroke with downsampled points
-			// Only include timestamps if stroke is short (they're optional and add significant size)
-			includeTimestamps := len(downsampledPoints) < 100
-			
-			stroke := Stroke{
-				X:           make([]float32, 0, len(downsampledPoints)),
-				Y:           make([]float32, 0, len(downsampledPoints)),
-				P:           make([]float32, 0, len(downsampledPoints)),
-				PointerType: pointerType,
+			allStrokes = append(allStrokes, struct {
+				line        rm.Line
+				pointerType string
+			}{line, pointerType})
+			originalTotalPoints += len(line.Points)
+		}
+	}
+
+	// Estimate payload size without downsampling (rough estimate: ~40 bytes per point)
+	estimatedSize := originalTotalPoints * 40
+	log.Trace.Printf("getJSON: Page %d - Estimated payload size: ~%d bytes (~%.2f MB) with %d strokes, %d total points", 
+		pageNumber, estimatedSize, float64(estimatedSize)/(1024*1024), len(allStrokes), originalTotalPoints)
+
+	// Determine downsampling strategy based on estimated size
+	downsampleRate := determineDownsampleRate(estimatedSize, originalTotalPoints, len(allStrokes))
+
+	// Second pass: build strokes with appropriate downsampling
+	for _, strokeData := range allStrokes {
+		line := strokeData.line
+		pointerType := strokeData.pointerType
+
+		// Downsample points based on determined rate
+		downsampledPoints := downsamplePointsWithRate(line.Points, downsampleRate)
+		
+		// Create stroke with downsampled points
+		// Only include timestamps if stroke is short (they're optional and add significant size)
+		includeTimestamps := len(downsampledPoints) < 100
+		
+		stroke := Stroke{
+			X:           make([]float32, 0, len(downsampledPoints)),
+			Y:           make([]float32, 0, len(downsampledPoints)),
+			P:           make([]float32, 0, len(downsampledPoints)),
+			PointerType: pointerType,
+		}
+		
+		if includeTimestamps {
+			stroke.T = make([]int64, 0, len(downsampledPoints))
+		}
+
+		timestamp := int64(0)
+		for _, point := range downsampledPoints {
+			// Reduce precision: round to 1 decimal place to reduce JSON size
+			stroke.X = append(stroke.X, roundFloat32(point.X, 1))
+			stroke.Y = append(stroke.Y, roundFloat32(point.Y, 1))
+
+			// Normalize pressure
+			pressure := point.Pressure
+			if pressure <= 0 {
+				pressure = 0.5
+			} else if pressure > 1.0 {
+				pressure = pressure / 10.0
+				if pressure > 1.0 {
+					pressure = 1.0
+				}
 			}
-			
+			// Round pressure to 2 decimal places
+			stroke.P = append(stroke.P, roundFloat32(pressure, 2))
+
+			// Add timestamp only for short strokes (optional field)
 			if includeTimestamps {
-				stroke.T = make([]int64, 0, len(downsampledPoints))
+				stroke.T = append(stroke.T, timestamp)
+				timestamp += 16
 			}
+		}
 
-			timestamp := int64(0)
-			for _, point := range downsampledPoints {
-				// Reduce precision: round to 1 decimal place to reduce JSON size
-				stroke.X = append(stroke.X, roundFloat32(point.X, 1))
-				stroke.Y = append(stroke.Y, roundFloat32(point.Y, 1))
-
-				// Normalize pressure
-				pressure := point.Pressure
-				if pressure <= 0 {
-					pressure = 0.5
-				} else if pressure > 1.0 {
-					pressure = pressure / 10.0
-					if pressure > 1.0 {
-						pressure = 1.0
-					}
-				}
-				// Round pressure to 2 decimal places
-				stroke.P = append(stroke.P, roundFloat32(pressure, 2))
-
-				// Add timestamp only for short strokes (optional field)
-				if includeTimestamps {
-					stroke.T = append(stroke.T, timestamp)
-					timestamp += 16
-				}
-			}
-
-			if len(stroke.X) > 0 && len(stroke.Y) > 0 {
-				sg.Strokes = append(sg.Strokes, &stroke)
-				totalStrokes++
-				totalPoints += len(stroke.X)
-			}
+		if len(stroke.X) > 0 && len(stroke.Y) > 0 {
+			sg.Strokes = append(sg.Strokes, &stroke)
+			totalStrokes++
+			totalPoints += len(stroke.X)
 		}
 	}
 
