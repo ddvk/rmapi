@@ -106,3 +106,13 @@ func newUserToken(http *transport.HttpClientCtx) (string, error) {
 
 	return resp.Content, nil
 }
+
+// NewDeviceToken creates a device token from a one-time code (public API for server mode)
+func NewDeviceToken(http *transport.HttpClientCtx, code string) (string, error) {
+	return newDeviceToken(http, code)
+}
+
+// NewUserToken creates a user token from a device token (public API for server mode)
+func NewUserToken(http *transport.HttpClientCtx) (string, error) {
+	return newUserToken(http)
+}
