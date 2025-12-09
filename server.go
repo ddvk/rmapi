@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juruen/rmapi/api"
 	"github.com/juruen/rmapi/archive"
@@ -30,10 +32,11 @@ import (
 
 
 type ApiServer struct {
-	mu       sync.RWMutex
-	ctx      api.ApiCtx
-	userInfo *api.UserInfo
-	shellCtx *shell.ShellCtxt
+	mu            sync.RWMutex
+	ctx           api.ApiCtx
+	userInfo      *api.UserInfo
+	shellCtx      *shell.ShellCtxt
+	refreshCancel context.CancelFunc
 }
 
 type ErrorResponse struct {
@@ -53,6 +56,9 @@ func NewApiServer() (*ApiServer, error) {
 	if err != nil {
 		log.Info.Println("Server starting without authentication. Use POST /api/auth to authenticate.")
 		log.Trace.Println("Initialization error (expected if no token):", err)
+	} else {
+		// Start background token refresh goroutine if authentication succeeded
+		server.startTokenRefreshGoroutine()
 	}
 	
 	return server, nil
@@ -174,6 +180,39 @@ func (s *ApiServer) refreshTokens() error {
 	
 	log.Info.Println("Tokens refreshed successfully")
 	return nil
+}
+
+// startTokenRefreshGoroutine starts a background goroutine that refreshes tokens every 2 hours
+func (s *ApiServer) startTokenRefreshGoroutine() {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.refreshCancel = cancel
+	
+	go func() {
+		ticker := time.NewTicker(2 * time.Hour)
+		defer ticker.Stop()
+		
+		log.Info.Println("Started background token refresh goroutine (refreshes every 2 hours)")
+		
+		// Refresh immediately on startup (in case token is close to expiring)
+		if err := s.refreshTokens(); err != nil {
+			log.Trace.Printf("Initial token refresh failed (may not be authenticated yet): %v", err)
+		}
+		
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info.Println("Stopping token refresh goroutine")
+				return
+			case <-ticker.C:
+				if err := s.refreshTokens(); err != nil {
+					log.Trace.Printf("Background token refresh failed: %v", err)
+					// Continue trying - don't stop the goroutine on error
+				} else {
+					log.Trace.Println("Background token refresh succeeded")
+				}
+			}
+		}
+	}()
 }
 
 // fetchDocumentWithRetry fetches a document and automatically refreshes tokens if needed
@@ -329,6 +368,11 @@ func (s *ApiServer) handleAuth(w http.ResponseWriter, r *http.Request) {
 	if err := s.initialize(); err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize server: %v", err))
 		return
+	}
+	
+	// Start token refresh goroutine if not already running
+	if s.refreshCancel == nil {
+		s.startTokenRefreshGoroutine()
 	}
 
 	s.mu.RLock()
