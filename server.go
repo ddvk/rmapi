@@ -12,20 +12,24 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/juruen/rmapi/api"
 	"github.com/juruen/rmapi/archive"
+	"github.com/juruen/rmapi/config"
+	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/shell"
+	"github.com/juruen/rmapi/transport"
 	"github.com/juruen/rmapi/util"
 	"github.com/juruen/rmapi/version"
 	"github.com/juruen/rmapi/visualize"
-	"github.com/juruen/rmapi/filetree"
 )
 
 
 type ApiServer struct {
+	mu       sync.RWMutex
 	ctx      api.ApiCtx
 	userInfo *api.UserInfo
 	shellCtx *shell.ShellCtxt
@@ -41,9 +45,36 @@ type SuccessResponse struct {
 }
 
 func NewApiServer() (*ApiServer, error) {
+	server := &ApiServer{}
+	
+	// Try to initialize with existing tokens, but don't fail if they don't exist
+	err := server.initialize()
+	if err != nil {
+		log.Info.Println("Server starting without authentication. Use POST /api/auth to authenticate.")
+		log.Trace.Println("Initialization error (expected if no token):", err)
+	}
+	
+	return server, nil
+}
+
+func (s *ApiServer) initialize() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	// Check if tokens exist before attempting authentication
+	configPath, err := config.ConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get config path: %v", err)
+	}
+	
+	authTokens := config.LoadTokens(configPath)
+	if authTokens.DeviceToken == "" {
+		return fmt.Errorf("no device token found")
+	}
+	
 	var ctx api.ApiCtx
-	var err error
 	var userInfo *api.UserInfo
+	var initErr error
 
 	ni := true // Non-interactive for server mode
 	const AUTH_RETRIES = 3
@@ -51,22 +82,22 @@ func NewApiServer() (*ApiServer, error) {
 	for i := 0; i < AUTH_RETRIES; i++ {
 		authCtx := api.AuthHttpCtx(i > 0, ni)
 
-		userInfo, err = api.ParseToken(authCtx.Tokens.UserToken)
-		if err != nil {
-			log.Trace.Println(err)
+		userInfo, initErr = api.ParseToken(authCtx.Tokens.UserToken)
+		if initErr != nil {
+			log.Trace.Println(initErr)
 			continue
 		}
 
-		ctx, err = api.CreateApiCtx(authCtx, userInfo.SyncVersion)
-		if err != nil {
-			log.Trace.Println(err)
+		ctx, initErr = api.CreateApiCtx(authCtx, userInfo.SyncVersion)
+		if initErr != nil {
+			log.Trace.Println(initErr)
 		} else {
 			break
 		}
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to build documents tree, last error: %v", err)
+	if initErr != nil {
+		return fmt.Errorf("failed to build documents tree, last error: %v", initErr)
 	}
 
 	shellCtx := &shell.ShellCtxt{
@@ -78,11 +109,29 @@ func NewApiServer() (*ApiServer, error) {
 		JSONOutput:     true,
 	}
 
-	return &ApiServer{
-		ctx:      ctx,
-		userInfo: userInfo,
-		shellCtx: shellCtx,
-	}, nil
+	s.ctx = ctx
+	s.userInfo = userInfo
+	s.shellCtx = shellCtx
+	
+	return nil
+}
+
+func (s *ApiServer) isAuthenticated() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.ctx != nil && s.userInfo != nil
+}
+
+func (s *ApiServer) requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	s.mu.RLock()
+	authenticated := s.ctx != nil && s.userInfo != nil && s.shellCtx != nil
+	s.mu.RUnlock()
+	
+	if !authenticated {
+		s.writeError(w, http.StatusUnauthorized, fmt.Errorf("not authenticated. Please authenticate using POST /api/auth with your one-time code from https://my.remarkable.com/device/browser/connect"))
+		return false
+	}
+	return true
 }
 
 func (s *ApiServer) writeError(w http.ResponseWriter, status int, err error) {
@@ -96,10 +145,186 @@ func (s *ApiServer) writeSuccess(w http.ResponseWriter, data interface{}) {
 	json.NewEncoder(w).Encode(SuccessResponse{Data: data})
 }
 
+// POST /api/auth or GET /api/auth?code=XXXXXX - Authenticate with one-time code
+func (s *ApiServer) handleAuth(w http.ResponseWriter, r *http.Request) {
+	var code string
+
+	// Support both GET (query parameter) and POST (JSON body)
+	if r.Method == http.MethodGet {
+		code = r.URL.Query().Get("code")
+		if code == "" {
+			// For GET requests, show a helpful HTML page if no code provided
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>rmapi Authentication</title>
+	<style>
+		body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+		.code-input { padding: 10px; font-size: 16px; width: 200px; text-align: center; letter-spacing: 2px; }
+		.submit-btn { padding: 10px 20px; font-size: 16px; background: #007bff; color: white; border: none; cursor: pointer; }
+		.submit-btn:hover { background: #0056b3; }
+		.info { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
+		.error { color: red; }
+	</style>
+</head>
+<body>
+	<h1>rmapi Authentication</h1>
+	<div class="info">
+		<p>To authenticate, get your one-time code from:</p>
+		<p><strong><a href="https://my.remarkable.com/device/browser/connect" target="_blank">https://my.remarkable.com/device/browser/connect</a></strong></p>
+	</div>
+	<form method="GET" action="/api/auth">
+		<label for="code">Enter your 8-digit code:</label><br><br>
+		<input type="text" id="code" name="code" class="code-input" maxlength="8" pattern="[0-9]{8}" placeholder="12345678" required autofocus>
+		<br><br>
+		<button type="submit" class="submit-btn">Authenticate</button>
+	</form>
+	<p><small>Or use: <code>GET /api/auth?code=YOUR_CODE</code> or <code>POST /api/auth</code> with JSON body</small></p>
+</body>
+</html>
+			`)
+			return
+		}
+	} else if r.Method == http.MethodPost {
+		var req struct {
+			Code string `json:"code"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.writeError(w, http.StatusBadRequest, fmt.Errorf("invalid request body: %v", err))
+			return
+		}
+		code = req.Code
+	} else {
+		http.Error(w, "Method not allowed. Use GET or POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if code == "" {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("code is required"))
+		return
+	}
+
+	// Validate code length
+	if len(code) != 8 {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("code must be 8 characters"))
+		return
+	}
+
+	// Get config path
+	configPath, err := config.ConfigPath()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to get config path: %v", err))
+		return
+	}
+
+	// Load existing tokens
+	authTokens := config.LoadTokens(configPath)
+	httpClientCtx := transport.CreateHttpClientCtx(authTokens)
+
+	// Create device token from code
+	deviceToken, err := api.NewDeviceToken(&httpClientCtx, code)
+	if err != nil {
+		s.writeError(w, http.StatusUnauthorized, fmt.Errorf("failed to create device token: %v", err))
+		return
+	}
+
+	// Save device token
+	authTokens.DeviceToken = deviceToken
+	httpClientCtx.Tokens.DeviceToken = deviceToken
+	config.SaveTokens(configPath, authTokens)
+
+	// Create user token
+	userToken, err := api.NewUserToken(&httpClientCtx)
+	if err != nil {
+		s.writeError(w, http.StatusUnauthorized, fmt.Errorf("failed to create user token: %v", err))
+		return
+	}
+
+	// Save user token
+	authTokens.UserToken = userToken
+	config.SaveTokens(configPath, authTokens)
+
+	// Reinitialize server with new tokens
+	if err := s.initialize(); err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to initialize server: %v", err))
+		return
+	}
+
+	s.mu.RLock()
+	user := s.userInfo.User
+	s.mu.RUnlock()
+	
+	// For GET requests, show a success page; for POST, return JSON
+	if r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Authentication Successful</title>
+	<style>
+		body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+		.success { background: #d4edda; padding: 20px; border-radius: 5px; border: 1px solid #c3e6cb; }
+		.user-info { margin-top: 15px; font-size: 18px; }
+	</style>
+</head>
+<body>
+	<div class="success">
+		<h1>✓ Authentication Successful!</h1>
+		<div class="user-info">
+			<p>Authenticated as: <strong>%s</strong></p>
+			<p>The server is now ready to use.</p>
+		</div>
+	</div>
+	<p><a href="/">← Back to API</a></p>
+</body>
+</html>
+		`, user)
+	} else {
+		s.writeSuccess(w, map[string]interface{}{
+			"message": "Authentication successful",
+			"user":    user,
+		})
+	}
+}
+
+// GET /api/auth/status - Check authentication status
+func (s *ApiServer) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.mu.RLock()
+	authenticated := s.ctx != nil && s.userInfo != nil
+	userInfo := s.userInfo
+	s.mu.RUnlock()
+
+	if authenticated {
+		s.writeSuccess(w, map[string]interface{}{
+			"authenticated": true,
+			"user":          userInfo.User,
+		})
+	} else {
+		s.writeSuccess(w, map[string]interface{}{
+			"authenticated": false,
+			"message":       "Not authenticated. Use POST /api/auth with your one-time code from https://my.remarkable.com/device/browser/connect",
+		})
+	}
+}
+
 // GET /api/ls?path=<path>&compact=<bool>&long=<bool>&reverse=<bool>&dirFirst=<bool>&byTime=<bool>&showTemplates=<bool>
 func (s *ApiServer) handleLs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -147,13 +372,24 @@ func (s *ApiServer) handlePwd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeSuccess(w, map[string]string{"path": s.shellCtx.Path})
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	s.mu.RLock()
+	path := s.shellCtx.Path
+	s.mu.RUnlock()
+	s.writeSuccess(w, map[string]string{"path": path})
 }
 
 // POST /api/cd
 func (s *ApiServer) handleCd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -192,6 +428,10 @@ func (s *ApiServer) handleCd(w http.ResponseWriter, r *http.Request) {
 func (s *ApiServer) handleGet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -858,9 +1098,17 @@ func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	s.mu.RLock()
+	user := s.userInfo.User
+	syncVersion := s.userInfo.SyncVersion
+	s.mu.RUnlock()
 	s.writeSuccess(w, map[string]interface{}{
-		"user":        s.userInfo.User,
-		"syncVersion": s.userInfo.SyncVersion,
+		"user":        user,
+		"syncVersion": syncVersion,
 	})
 }
 
@@ -911,7 +1159,11 @@ func runServerMode(port string) {
 
 	mux := http.NewServeMux()
 
-	// API endpoints
+	// Authentication endpoints (no auth required)
+	mux.HandleFunc("/api/auth", server.handleAuth)
+	mux.HandleFunc("/api/auth/status", server.handleAuthStatus)
+
+	// API endpoints (require authentication)
 	mux.HandleFunc("/api/ls", server.handleLs)
 	mux.HandleFunc("/api/pwd", server.handlePwd)
 	mux.HandleFunc("/api/cd", server.handleCd)
@@ -948,6 +1200,12 @@ func runServerMode(port string) {
 </head>
 <body>
 	<h1>rmapi REST API</h1>
+	<h2>Authentication:</h2>
+	<ul>
+		<li>GET /api/auth - Authenticate with one-time code via URL (e.g., <code>/api/auth?code=12345678</code>)</li>
+		<li>POST /api/auth - Authenticate with one-time code via JSON body</li>
+		<li>GET /api/auth/status - Check authentication status</li>
+	</ul>
 	<h2>Endpoints:</h2>
 	<ul>
 		<li>GET /api/ls - List directory</li>
@@ -965,6 +1223,7 @@ func runServerMode(port string) {
 		<li>POST /api/refresh - Refresh file tree</li>
 		<li>GET /api/version - Get version</li>
 	</ul>
+	<p><strong>Note:</strong> On first startup, authenticate using POST /api/auth with your one-time code from <a href="https://my.remarkable.com/device/browser/connect">https://my.remarkable.com/device/browser/connect</a></p>
 </body>
 </html>
 		`)
