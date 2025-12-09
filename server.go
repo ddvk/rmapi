@@ -729,22 +729,7 @@ func (s *ApiServer) handleHwr(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// If single page, return TXT directly
-		if len(textContent) == 1 {
-			var pageNum int
-			var text string
-			for p, t := range textContent {
-				pageNum = p
-				text = t
-			}
-			w.Header().Set("Content-Type", "text/plain")
-			w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"%s_page_%d.txt\"", baseNameWithoutExt, pageNum))
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(text))
-			return
-		}
-
-		// Multiple pages: return as ZIP file
+		// Always return as ZIP file, even for single page (consistent behavior)
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"", baseNameWithoutExt))
 		w.WriteHeader(http.StatusOK)
