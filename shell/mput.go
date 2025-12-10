@@ -22,6 +22,7 @@ func mputCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Func: func(c *ishell.Context) {
 			flagSet := flag.NewFlagSet("mput", flag.ContinueOnError)
 			src := flagSet.String("src", "", "source dir")
+			tagsFlag := flagSet.String("tags", "", "comma-separated list of tags")
 
 			if err := flagSet.Parse(c.Args); err != nil {
 				if err != flag.ErrHelp {
@@ -34,6 +35,14 @@ func mputCmd(ctx *ShellCtxt) *ishell.Cmd {
 			srcDir := "./"
 			if *src != "" {
 				srcDir = *src
+			}
+
+			var tags []string
+			if *tagsFlag != "" {
+				tags = strings.Split(*tagsFlag, ",")
+				for i, tag := range tags {
+					tags[i] = strings.TrimSpace(tag)
+				}
 			}
 
 			if argsLen == 0 {
@@ -70,7 +79,7 @@ func mputCmd(ctx *ShellCtxt) *ishell.Cmd {
 			ctx.node = node
 
 			c.Println()
-			err = putFilesAndDirs(ctx, c, srcDir, 0, &treeFormatStr)
+			err = putFilesAndDirs(ctx, c, srcDir, 0, &treeFormatStr, tags)
 			if err != nil {
 				c.Err(err)
 			}
@@ -125,7 +134,7 @@ func treeFormat(pC *ishell.Context, num int, lIndex int, lSize int, tFS *string)
 	*tFS = tFStr
 }
 
-func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth int, tFS *string) error {
+func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth int, tFS *string, tags []string) error {
 
 	if depth == 0 {
 		pC.Println(pCtx.path)
@@ -185,7 +194,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 			pCtx.node = node
 
 			subfolder := path.Join(localDir, name)
-			err = putFilesAndDirs(pCtx, pC, subfolder, depth+1, tFS)
+			err = putFilesAndDirs(pCtx, pC, subfolder, depth+1, tFS, tags)
 			if err != nil {
 				return err
 			}
@@ -213,7 +222,7 @@ func putFilesAndDirs(pCtx *ShellCtxt, pC *ishell.Context, localDir string, depth
 				pC.Printf("uploading: [%s]...", name)
 
 				fullName := path.Join(localDir, name)
-				doc, err := pCtx.api.UploadDocument(pCtx.node.Id(), fullName, false, nil)
+				doc, err := pCtx.api.UploadDocument(pCtx.node.Id(), fullName, false, nil, tags)
 
 				if err != nil {
 					pC.Err(fmt.Errorf("failed to upload file '%s', %v", name, err))

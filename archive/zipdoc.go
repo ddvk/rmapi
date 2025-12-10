@@ -144,7 +144,7 @@ func CreateZipDocument(id, srcPath string) (zipPath string, err error) {
 		return
 	}
 
-	c, err := createZipContent(fileType, pages, nil)
+	c, err := createZipContent(fileType, pages, nil, nil)
 	if err != nil {
 		return
 	}
@@ -179,7 +179,18 @@ func CreateZipDirectory(id string) (string, error) {
 	return tmp.Name(), nil
 }
 
-func createZipContent(ext string, pageIDs []string, coverpage *int) (string, error) {
+func createZipContent(ext string, pageIDs []string, coverpage *int, tags []string) (string, error) {
+	var documentTags []Tag
+	if len(tags) > 0 {
+		timestamp := time.Now().UnixNano() / 1000000
+		for _, tagName := range tags {
+			documentTags = append(documentTags, Tag{
+				Name:      tagName,
+				Timestamp: timestamp,
+			})
+		}
+	}
+
 	c := Content{
 		DummyDocument: false,
 		ExtraMetadata: ExtraMetadata{
@@ -206,6 +217,7 @@ func createZipContent(ext string, pageIDs []string, coverpage *int) (string, err
 		},
 		Pages:           pageIDs,
 		CoverPageNumber: coverpage,
+		DocumentTags:    documentTags,
 	}
 
 	cstring, err := json.Marshal(c)
@@ -218,13 +230,13 @@ func createZipContent(ext string, pageIDs []string, coverpage *int) (string, err
 	return string(cstring), nil
 }
 
-func CreateContent(id, ext, fpath string, pageIds []string, coverpage *int) (fileName, filePath string, err error) {
+func CreateContent(id, ext, fpath string, pageIds []string, coverpage *int, tags []string) (fileName, filePath string, err error) {
 	fileName = id + "." + string(ContentExt)
 	filePath = path.Join(fpath, fileName)
 	content := "{}"
 
 	if ext != "" {
-		content, err = createZipContent(ext, pageIds, coverpage)
+		content, err = createZipContent(ext, pageIds, coverpage, tags)
 		if err != nil {
 			return
 		}

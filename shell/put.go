@@ -3,6 +3,7 @@ package shell
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/util"
@@ -19,7 +20,8 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 Options:
   --force              Overwrite existing file (recreates document)
   --content-only       Replace PDF content only (preserves document metadata)
-  --coverpage=<0|1>    Set coverpage (0 to disable, 1 to set first page as cover)`,
+  --coverpage=<0|1>    Set coverpage (0 to disable, 1 to set first page as cover)
+  --tags=<tag1,tag2>   Add tags to the document (comma-separated)`,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) == 0 {
 				c.Err(errors.New("missing source file"))
@@ -33,6 +35,7 @@ Options:
 			force := flags.Bool("force", false, "overwrite existing file")
 			contentOnly := flags.Bool("content-only", false, "replace PDF content only")
 			coverpage := flags.String("coverpage", "", "set coverpage (0 or 1)")
+			tagsFlag := flags.String("tags", "", "comma-separated list of tags")
 
 			if err := flags.Parse(c.Args); err != nil {
 				c.Err(err)
@@ -66,6 +69,14 @@ Options:
 				}
 			}
 
+			var tags []string
+			if *tagsFlag != "" {
+				tags = strings.Split(*tagsFlag, ",")
+				for i, tag := range tags {
+					tags[i] = strings.TrimSpace(tag)
+				}
+			}
+
 			srcName := args[0]
 
 			// Handle --content-only mode (replace PDF content)
@@ -95,7 +106,7 @@ Options:
 					// Document doesn't exist, create new one
 					c.Printf("uploading: [%s]...", srcName)
 					dstDir := node.Id()
-					document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+					document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, tags)
 					if err != nil {
 						c.Err(fmt.Errorf("failed to upload file [%s]: %v", srcName, err))
 						return
@@ -157,7 +168,7 @@ Options:
 
 				// Upload new document
 				dstDir := node.Id()
-				document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+				document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, tags)
 				if err != nil {
 					c.Err(fmt.Errorf("failed to upload replacement file [%s]: %v", srcName, err))
 					return
@@ -171,7 +182,7 @@ Options:
 			// File doesn't exist, upload new document
 			c.Printf("uploading: [%s]...", srcName)
 			dstDir := node.Id()
-			document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag)
+			document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, tags)
 
 			if err != nil {
 				c.Err(fmt.Errorf("failed to upload file [%s] %v", srcName, err))
