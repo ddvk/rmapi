@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -988,11 +989,33 @@ func (s *ApiServer) handleRm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := r.URL.Query()
-	path := query.Get("path")
-	if path == "" {
+	pathParam := query.Get("path")
+	
+	// If path is empty, try parsing raw query string (handles edge cases with encoding)
+	if pathParam == "" {
+		if rawQuery := r.URL.RawQuery; rawQuery != "" {
+			if parsed, err := url.ParseQuery(rawQuery); err == nil {
+				pathParam = parsed.Get("path")
+			}
+		}
+	}
+	
+	if pathParam == "" {
+		log.Trace.Printf("DELETE /api/rm: RawQuery=%s, Query()=%v", r.URL.RawQuery, r.URL.Query())
 		s.writeError(w, http.StatusBadRequest, fmt.Errorf("path parameter is required"))
 		return
 	}
+	
+	// URL decode the path in case it's double-encoded or has special characters
+	decodedPath, err := url.QueryUnescape(pathParam)
+	if err != nil {
+		// If decoding fails, use the original
+		log.Trace.Printf("Failed to decode path '%s': %v, using original", pathParam, err)
+		decodedPath = pathParam
+	}
+	path := decodedPath
+	
+	log.Trace.Printf("DELETE /api/rm: path='%s' (decoded from '%s')", path, pathParam)
 
 	recursive := query.Get("recursive") == "true"
 
@@ -1284,6 +1307,10 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 func (s *ApiServer) handleStat(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
 		return
 	}
 
