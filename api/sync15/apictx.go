@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juruen/rmapi/archive"
+	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/model"
@@ -50,6 +51,8 @@ func CreateCtx(http *transport.HttpClientCtx) (*ApiCtx, error) {
 		return nil, fmt.Errorf("failed to mirror %v", err)
 	}
 	saveTree(cacheTree)
+	// Note: We don't save diff snapshot here to avoid resetting it during token refresh.
+	// Snapshot is only saved on explicit Refresh() calls.
 	tree := DocumentsFileTree(cacheTree)
 	return &ApiCtx{http, tree, apiStorage, cacheTree}, nil
 }
@@ -64,7 +67,74 @@ func (ctx *ApiCtx) Refresh() (string, int64, error) {
 		return "", 0, err
 	}
 	ctx.ft = DocumentsFileTree(ctx.hashTree)
+	// Save snapshot after refresh for diff comparison
+	saveDiffSnapshot(ctx.hashTree)
 	return ctx.hashTree.Hash, ctx.hashTree.Generation, nil
+}
+
+// RefreshTree syncs the file tree with remote but does not save snapshot
+func (ctx *ApiCtx) RefreshTree() (string, int64, error) {
+	err := ctx.hashTree.Mirror(ctx.blobStorage, concurrent)
+	if err != nil {
+		return "", 0, err
+	}
+	ctx.ft = DocumentsFileTree(ctx.hashTree)
+	// Note: We don't save snapshot here - that's only done in Refresh()
+	return ctx.hashTree.Hash, ctx.hashTree.Generation, nil
+}
+
+// RefreshToken updates the user token in the existing context without recreating it
+func (ctx *ApiCtx) RefreshToken() error {
+	// Get new user token using existing device token
+	// Use transport directly to avoid import cycle
+	resp := transport.BodyString{}
+	err := ctx.Http.Post(transport.DeviceBearer, config.NewUserDevice, nil, &resp)
+	if err != nil {
+		return fmt.Errorf("failed to refresh user token: %v", err)
+	}
+	
+	userToken := resp.Content
+	
+	// Update token in the context
+	ctx.Http.Tokens.UserToken = userToken
+	
+	// Save to config
+	configPath, err := config.ConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get config path: %v", err)
+	}
+	authTokens := config.LoadTokens(configPath)
+	authTokens.UserToken = userToken
+	config.SaveTokens(configPath, authTokens)
+	
+	return nil
+}
+
+// Diff refreshes the file tree and compares it to the last saved snapshot
+// After comparison, it updates the snapshot so subsequent calls will show no changes if nothing changed
+func (ctx *ApiCtx) Diff() (*DiffResult, error) {
+	// First refresh the tree to get latest state
+	_, _, err := ctx.RefreshTree()
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh tree: %v", err)
+	}
+	
+	// Then compare with snapshot
+	snapshot, err := loadDiffSnapshot()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load diff snapshot: %v", err)
+	}
+	
+	result := computeDiff(ctx.hashTree, snapshot)
+	
+	// Update snapshot after comparison so next diff call will compare against this state
+	err = saveDiffSnapshot(ctx.hashTree)
+	if err != nil {
+		// Log error but don't fail - the diff result is still valid
+		log.Warning.Printf("Failed to save diff snapshot: %v", err)
+	}
+	
+	return result, nil
 }
 
 // Nuke removes all documents from the account

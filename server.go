@@ -124,60 +124,33 @@ func (s *ApiServer) initialize() error {
 	return nil
 }
 
-// refreshTokens refreshes the user token and recreates the API context
+// refreshTokens refreshes only the user token without recreating the API context
 func (s *ApiServer) refreshTokens() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
+	if s.ctx == nil {
+		return fmt.Errorf("API context not initialized")
+	}
+	
+	err := s.ctx.RefreshToken()
+	if err != nil {
+		return err
+	}
+	
+	// Update user info from refreshed token
 	configPath, err := config.ConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %v", err)
 	}
-	
 	authTokens := config.LoadTokens(configPath)
-	if authTokens.DeviceToken == "" {
-		return fmt.Errorf("no device token found")
-	}
-	
-	// Create HTTP context with existing device token
-	httpClientCtx := transport.CreateHttpClientCtx(authTokens)
-	
-	// Refresh user token
-	userToken, err := api.NewUserToken(&httpClientCtx)
-	if err != nil {
-		return fmt.Errorf("failed to refresh user token: %v", err)
-	}
-	
-	// Save refreshed token
-	authTokens.UserToken = userToken
-	config.SaveTokens(configPath, authTokens)
-	httpClientCtx.Tokens.UserToken = userToken
-	
-	// Parse token to get user info
-	userInfo, err := api.ParseToken(userToken)
+	userInfo, err := api.ParseToken(authTokens.UserToken)
 	if err != nil {
 		return fmt.Errorf("failed to parse refreshed token: %v", err)
 	}
 	
-	// Recreate API context with refreshed token
-	ctx, err := api.CreateApiCtx(&httpClientCtx, userInfo.SyncVersion)
-	if err != nil {
-		return fmt.Errorf("failed to recreate API context: %v", err)
-	}
-	
-	// Update shell context
-	shellCtx := &shell.ShellCtxt{
-		Node:           ctx.Filetree().Root(),
-		Api:            ctx,
-		Path:           ctx.Filetree().Root().Name(),
-		UseHiddenFiles: shell.UseHiddenFiles(),
-		UserInfo:       *userInfo,
-		JSONOutput:     true,
-	}
-	
-	s.ctx = ctx
 	s.userInfo = userInfo
-	s.shellCtx = shellCtx
+	s.shellCtx.UserInfo = *userInfo
 	
 	log.Info.Println("Tokens refreshed successfully")
 	return nil
@@ -1451,6 +1424,10 @@ func (s *ApiServer) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !s.requireAuth(w, r) {
+		return
+	}
+
 	has, gen, err := s.ctx.Refresh()
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, err)
@@ -1469,7 +1446,88 @@ func (s *ApiServer) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		"rootHash":    has,
 		"generation":  gen,
 		"currentPath": s.shellCtx.Path,
+		"message":     "Tree refreshed and diff snapshot saved",
 	})
+}
+
+// POST /api/refresh-token
+func (s *ApiServer) handleRefreshToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	err := s.ctx.RefreshToken()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	s.mu.RLock()
+	user := s.userInfo.User
+	s.mu.RUnlock()
+
+	s.writeSuccess(w, map[string]interface{}{
+		"message": "Token refreshed successfully",
+		"user":    user,
+	})
+}
+
+// POST /api/refresh-tree
+func (s *ApiServer) handleRefreshTree(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	has, gen, err := s.ctx.RefreshTree()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	n, err := s.ctx.Filetree().NodeByPath(s.shellCtx.Path, nil)
+	if err != nil {
+		s.shellCtx.Node = s.ctx.Filetree().Root()
+		s.shellCtx.Path = s.shellCtx.Node.Name()
+	} else {
+		s.shellCtx.Node = n
+	}
+
+	s.writeSuccess(w, map[string]interface{}{
+		"rootHash":    has,
+		"generation":  gen,
+		"currentPath": s.shellCtx.Path,
+		"message":     "Tree refreshed (diff snapshot not updated)",
+	})
+}
+
+// GET /api/diff
+func (s *ApiServer) handleDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
+		return
+	}
+
+	result, err := s.ctx.Diff()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	s.writeSuccess(w, result)
 }
 
 // GET /api/version
@@ -1510,6 +1568,9 @@ func runServerMode(port string) {
 	mux.HandleFunc("/api/find", server.handleFind)
 	mux.HandleFunc("/api/account", server.handleAccount)
 	mux.HandleFunc("/api/refresh", server.handleRefresh)
+	mux.HandleFunc("/api/refresh-token", server.handleRefreshToken)
+	mux.HandleFunc("/api/refresh-tree", server.handleRefreshTree)
+	mux.HandleFunc("/api/diff", server.handleDiff)
 	mux.HandleFunc("/api/version", server.handleVersion)
 
 	// Health check endpoint
@@ -1554,7 +1615,10 @@ func runServerMode(port string) {
 		<li>GET /api/stat - Get file metadata</li>
 		<li>GET /api/find - Find files</li>
 		<li>GET /api/account - Get account info</li>
-		<li>POST /api/refresh - Refresh file tree</li>
+		<li>POST /api/refresh - Refresh file tree and save diff snapshot</li>
+		<li>POST /api/refresh-token - Refresh authentication token only</li>
+		<li>POST /api/refresh-tree - Refresh file tree only (does not save diff snapshot)</li>
+		<li>GET /api/diff - Refresh file tree and check if remote content has changed</li>
 		<li>GET /api/version - Get version</li>
 	</ul>
 	<p><strong>Note:</strong> On first startup, authenticate using POST /api/auth with your one-time code from <a href="https://my.remarkable.com/device/browser/connect">https://my.remarkable.com/device/browser/connect</a></p>
