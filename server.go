@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -1125,29 +1126,92 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(32 << 20) // 32 MB max
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, fmt.Errorf("failed to parse multipart form: %v", err))
-		return
-	}
+	contentType := r.Header.Get("Content-Type")
+	var file io.ReadCloser
+	var filename string
+	var destDir, force, contentOnly, coverpageStr string
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, fmt.Errorf("file is required: %v", err))
-		return
+	// Check if it's multipart/form-data or raw binary
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Handle multipart/form-data upload
+		err := r.ParseMultipartForm(32 << 20) // 32 MB max
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, fmt.Errorf("failed to parse multipart form: %v", err))
+			return
+		}
+
+		var header *multipart.FileHeader
+		file, header, err = r.FormFile("file")
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, fmt.Errorf("file is required: %v", err))
+			return
+		}
+		filename = header.Filename
+
+		destDir = r.FormValue("destination")
+		force = r.FormValue("force")
+		contentOnly = r.FormValue("contentOnly")
+		coverpageStr = r.FormValue("coverpage")
+	} else {
+		// Handle raw binary upload
+		// Get filename from X-Filename header or Content-Disposition header
+		filename = r.Header.Get("X-Filename")
+		if filename == "" {
+			contentDisposition := r.Header.Get("Content-Disposition")
+			if contentDisposition != "" {
+				// Parse filename from Content-Disposition: attachment; filename="example.pdf"
+				// Also handles: filename=example.pdf (without quotes)
+				if idx := strings.Index(contentDisposition, "filename="); idx != -1 {
+					filenamePart := contentDisposition[idx+9:]
+					// Remove quotes if present
+					filename = strings.Trim(filenamePart, `"`)
+					// Handle cases like: filename="example.pdf"; or filename=example.pdf;
+					if idx2 := strings.Index(filename, ";"); idx2 != -1 {
+						filename = filename[:idx2]
+					}
+					filename = strings.TrimSpace(filename)
+				}
+			}
+		}
+		if filename == "" {
+			// Default filename based on Content-Type
+			if strings.Contains(contentType, "pdf") {
+				filename = "document.pdf"
+			} else {
+				filename = "document"
+			}
+		}
+
+		file = r.Body
+
+		// Get parameters from query string or headers
+		destDir = r.URL.Query().Get("destination")
+		if destDir == "" {
+			destDir = r.Header.Get("X-Destination")
+		}
+		force = r.URL.Query().Get("force")
+		if force == "" {
+			force = r.Header.Get("X-Force")
+		}
+		contentOnly = r.URL.Query().Get("contentOnly")
+		if contentOnly == "" {
+			contentOnly = r.Header.Get("X-Content-Only")
+		}
+		coverpageStr = r.URL.Query().Get("coverpage")
+		if coverpageStr == "" {
+			coverpageStr = r.Header.Get("X-Coverpage")
+		}
 	}
 	defer file.Close()
 
-	destDir := r.FormValue("destination")
 	if destDir == "" {
 		destDir = s.shellCtx.Path
 	}
 
-	force := r.FormValue("force") == "true"
-	contentOnly := r.FormValue("contentOnly") == "true"
-	coverpageStr := r.FormValue("coverpage")
+	forceBool := force == "true"
+	contentOnlyBool := contentOnly == "true"
 
-	if force && contentOnly {
+	if forceBool && contentOnlyBool {
 		s.writeError(w, http.StatusBadRequest, fmt.Errorf("--force and --content-only cannot be used together"))
 		return
 	}
@@ -1158,13 +1222,28 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 		coverpageFlag = &val
 	}
 
-	// Save uploaded file temporarily
-	tmpFile, err := os.CreateTemp("", fmt.Sprintf("rmapi-upload-*%s", filepath.Ext(header.Filename)))
+	// Save uploaded file temporarily with the desired filename
+	// First create a temp directory to avoid filename conflicts
+	tmpDir, err := os.MkdirTemp("", "rmapi-upload-")
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create temp directory: %v", err))
+		return
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Sanitize filename to prevent path traversal
+	safeFilename := filepath.Base(filename) // Remove any directory components
+	if safeFilename == "" || safeFilename == "." || safeFilename == ".." {
+		safeFilename = "document.pdf"
+	}
+
+	// Create temp file with the desired filename
+	tmpFilePath := filepath.Join(tmpDir, safeFilename)
+	tmpFile, err := os.Create(tmpFilePath)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create temp file: %v", err))
 		return
 	}
-	defer os.Remove(tmpFile.Name())
 
 	_, err = io.Copy(tmpFile, file)
 	tmpFile.Close()
@@ -1179,10 +1258,10 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	docName, _ := util.DocPathToName(header.Filename)
+	docName, _ := util.DocPathToName(filename)
 
-	if contentOnly {
-		_, ext := util.DocPathToName(header.Filename)
+	if contentOnlyBool {
+		_, ext := util.DocPathToName(filename)
 		if ext != "pdf" {
 			s.writeError(w, http.StatusBadRequest, fmt.Errorf("--content-only can only be used with PDF files"))
 			return
@@ -1192,7 +1271,7 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// Document doesn't exist, create new one
 			dstDir := node.Id()
-			document, err := s.ctx.UploadDocument(dstDir, tmpFile.Name(), true, coverpageFlag)
+			document, err := s.ctx.UploadDocument(dstDir, tmpFilePath, true, coverpageFlag)
 			if err != nil {
 				s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to upload file: %v", err))
 				return
@@ -1211,7 +1290,7 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.ctx.ReplaceDocumentFile(existingNode.Document.ID, tmpFile.Name(), true); err != nil {
+		if err := s.ctx.ReplaceDocumentFile(existingNode.Document.ID, tmpFilePath, true); err != nil {
 			s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to replace content: %v", err))
 			return
 		}
@@ -1226,7 +1305,7 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 	existingNode, err := s.ctx.Filetree().NodeByPath(docName, node)
 	if err == nil {
 		// File exists
-		if !force {
+		if !forceBool {
 			s.writeError(w, http.StatusConflict, fmt.Errorf("entry already exists (use force=true to recreate, contentOnly=true to replace content)"))
 			return
 		}
@@ -1245,7 +1324,7 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 
 		// Upload new document
 		dstDir := node.Id()
-		document, err := s.ctx.UploadDocument(dstDir, tmpFile.Name(), true, coverpageFlag)
+		document, err := s.ctx.UploadDocument(dstDir, tmpFilePath, true, coverpageFlag)
 		if err != nil {
 			s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to upload replacement file: %v", err))
 			return
@@ -1262,7 +1341,7 @@ func (s *ApiServer) handlePut(w http.ResponseWriter, r *http.Request) {
 
 	// File doesn't exist, upload new document
 	dstDir := node.Id()
-	document, err := s.ctx.UploadDocument(dstDir, tmpFile.Name(), true, coverpageFlag)
+	document, err := s.ctx.UploadDocument(dstDir, tmpFilePath, true, coverpageFlag)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to upload file: %v", err))
 		return
