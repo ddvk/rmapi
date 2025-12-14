@@ -62,7 +62,7 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 			case 0:
 				start = ctx.path
 			default:
-				c.Err(errors.New("missing arguments; usage find [options] [dir] [regexp]"))
+				flagSet.Usage()
 				return
 			}
 
@@ -87,6 +87,11 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 			filetree.WalkTree(startNode, filetree.FileTreeVistor{
 				Visit: func(node *model.Node, path []string) bool {
+					// Skip items in trash
+					if node.Document != nil && node.Document.Parent == "trash" {
+						return false
+					}
+
 					// Filter by starred status if flag was set
 					if starredFilterEnabled && node.Document != nil {
 						if node.Document.Starred != starred {

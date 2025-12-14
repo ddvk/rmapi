@@ -154,7 +154,7 @@ find / "Journal-..-..-2024"
 # Or just search for all files with 2024 in the filename
 find / ".*2024.*"
 # If you want to search ignore character casing, you can do that as follows:
-find / "(?!i)case_insensitive_search"
+find / "(?i)case_insensitive_search"
 
 # Find files with either "Work" or "Personal" tag
 find --tag="Work" --tag="Personal"
