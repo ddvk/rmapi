@@ -898,46 +898,125 @@ func (s *ApiServer) handleMkdir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Path string `json:"path"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.writeError(w, http.StatusBadRequest, err)
-		return
+	var target string
+	recursive := false
+
+	// Try to get path from query parameter first
+	target = r.URL.Query().Get("path")
+	recursiveParam := r.URL.Query().Get("recursive")
+	if recursiveParam == "true" || recursiveParam == "1" {
+		recursive = true
 	}
 
-	if req.Path == "" {
+	if target == "" {
+		// Fall back to JSON body
+		var req struct {
+			Path      string `json:"path"`
+			Recursive bool   `json:"recursive"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		target = req.Path
+		recursive = req.Recursive
+	}
+
+	if target == "" {
 		s.writeError(w, http.StatusBadRequest, fmt.Errorf("path is required"))
 		return
 	}
 
-	target := req.Path
-	_, err := s.ctx.Filetree().NodeByPath(target, s.shellCtx.Node)
+	// Check if target already exists
+	existingNode, err := s.ctx.Filetree().NodeByPath(target, s.shellCtx.Node)
 	if err == nil {
-		s.writeError(w, http.StatusConflict, fmt.Errorf("entry already exists"))
+		if existingNode.IsDirectory() {
+			s.writeSuccess(w, map[string]interface{}{
+				"message": "Directory already exists",
+				"node":    shell.NodeToJSON(existingNode),
+			})
+			return
+		} else {
+			s.writeError(w, http.StatusConflict, fmt.Errorf("file already exists at path"))
+			return
+		}
+	}
+
+	// Normalize path
+	target = strings.Trim(target, "/")
+	if target == "" {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("invalid path"))
 		return
 	}
 
-	parentDir := path.Dir(target)
-	newDir := path.Base(target)
-
-	if newDir == "/" || newDir == "." {
+	// Split path into components
+	parts := strings.Split(target, "/")
+	if len(parts) == 0 {
 		s.writeError(w, http.StatusBadRequest, fmt.Errorf("invalid directory name"))
 		return
 	}
 
-	parentNode, err := s.ctx.Filetree().NodeByPath(parentDir, s.shellCtx.Node)
-	if err != nil || parentNode.IsFile() {
-		s.writeError(w, http.StatusNotFound, fmt.Errorf("directory doesn't exist"))
+	// Find or create parent directories recursively
+	currentPath := ""
+	currentNode := s.shellCtx.Node
+	parentId := ""
+
+	for i := 0; i < len(parts)-1; i++ {
+		part := parts[i]
+		if part == "" {
+			continue
+		}
+		currentPath = path.Join(currentPath, part)
+
+		// Check if this directory exists
+		checkNode, err := s.ctx.Filetree().NodeByPath(currentPath, s.shellCtx.Node)
+		if err != nil {
+			// Directory doesn't exist
+			if !recursive {
+				s.writeError(w, http.StatusNotFound, fmt.Errorf("parent directory doesn't exist: %s (use recursive=true to create)", currentPath))
+				return
+			}
+
+			// Create the parent directory
+			createParentId := parentId
+			if currentNode.IsRoot() {
+				createParentId = ""
+			}
+			parentDoc, err := s.ctx.CreateDir(createParentId, part, true)
+			if err != nil {
+				s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create parent directory %s: %v", currentPath, err))
+				return
+			}
+			s.ctx.Filetree().AddDocument(parentDoc)
+			newNode := model.CreateNode(*parentDoc)
+			checkNode = &newNode
+		}
+
+		if checkNode.IsFile() {
+			s.writeError(w, http.StatusBadRequest, fmt.Errorf("path component is a file, not a directory: %s", currentPath))
+			return
+		}
+
+		currentNode = checkNode
+		parentId = currentNode.Id()
+		if currentNode.IsRoot() {
+			parentId = ""
+		}
+	}
+
+	// Create the final directory
+	newDir := parts[len(parts)-1]
+	if newDir == "" || newDir == "." || newDir == ".." {
+		s.writeError(w, http.StatusBadRequest, fmt.Errorf("invalid directory name"))
 		return
 	}
 
-	parentId := parentNode.Id()
-	if parentNode.IsRoot() {
-		parentId = ""
+	finalParentId := parentId
+	if currentNode.IsRoot() {
+		finalParentId = ""
 	}
 
-	document, err := s.ctx.CreateDir(parentId, newDir, true)
+	document, err := s.ctx.CreateDir(finalParentId, newDir, true)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create directory: %v", err))
 		return
