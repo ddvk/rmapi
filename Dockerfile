@@ -23,19 +23,13 @@ RUN xx-go --wrap && \
 FROM alpine:latest
 
 RUN adduser -D app && \
-    apk add --no-cache su-exec && \
-    mkdir -p /home/app/.config/rmapi && \
-    mkdir -p /home/app/.cache/rmapi && \
-    mkdir -p /home/app/downloads && \
-    chown -R app:app /home/app/.config && \
-    chown -R app:app /home/app/.cache && \
-    chown -R app:app /home/app/downloads
+    apk add --no-cache su-exec 
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-WORKDIR /home/app/downloads
+WORKDIR /home/app
 
 COPY --from=builder /src/rmapi /usr/local/bin/rmapi
 

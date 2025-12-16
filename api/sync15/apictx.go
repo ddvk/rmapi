@@ -61,6 +61,10 @@ func (ctx *ApiCtx) Filetree() *filetree.FileTreeCtx {
 	return ctx.ft
 }
 
+func (ctx *ApiCtx) HashTree() *HashTree {
+	return ctx.hashTree
+}
+
 func (ctx *ApiCtx) Refresh() (string, int64, error) {
 	err := ctx.hashTree.Mirror(ctx.blobStorage, concurrent)
 	if err != nil {

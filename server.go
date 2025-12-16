@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/juruen/rmapi/api"
+	"github.com/juruen/rmapi/api/sync15"
 	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/filetree"
@@ -1685,7 +1686,75 @@ func (s *ApiServer) handleDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeSuccess(w, result)
+	// Enrich result with human-readable names and paths
+	enrichedResult := map[string]interface{}{
+		"has_changes": result.HasChanges,
+		"new_files":   enrichDiffEntries(result.NewFiles, s.ctx, true),
+		"modified":    enrichDiffEntries(result.Modified, s.ctx, true),
+		"deleted":     enrichDiffEntries(result.Deleted, s.ctx, false),
+		// Keep original IDs for backward compatibility
+		"new_files_ids":   result.NewFiles,
+		"modified_ids":    result.Modified,
+		"deleted_ids":     result.Deleted,
+	}
+
+	s.writeSuccess(w, enrichedResult)
+}
+
+// enrichDiffEntries converts document IDs to entries with names and paths
+func enrichDiffEntries(docIds []string, ctx api.ApiCtx, includePath bool) []map[string]interface{} {
+	enriched := make([]map[string]interface{}, 0, len(docIds))
+	filetree := ctx.Filetree()
+	
+	for _, docId := range docIds {
+		entry := map[string]interface{}{
+			"id": docId,
+		}
+		
+		// Try to find the node in the current filetree first
+		node := filetree.NodeById(docId)
+		if node != nil {
+			// Use the same NodeToJSON function as ls endpoint
+			nodeJSON := shell.NodeToJSON(node)
+			entry["name"] = nodeJSON.Name
+			if includePath {
+				// Get full path for the node
+				if path, err := filetree.NodeToPath(node); err == nil {
+					entry["path"] = path
+				} else {
+					entry["path"] = ""
+				}
+			}
+		} else {
+			// Node not found in filetree, try to get name from hashTree directly
+			// This handles cases where the filetree might not be fully synced
+			if syncCtx, ok := ctx.(*sync15.ApiCtx); ok {
+				if doc, err := syncCtx.HashTree().FindDoc(docId); err == nil {
+					docModel := doc.ToDocument()
+					entry["name"] = docModel.Name
+					if includePath {
+						entry["path"] = "" // Can't get path from hashTree alone
+					}
+				} else {
+					// Document not found (might be deleted)
+					entry["name"] = docId
+					if includePath {
+						entry["path"] = ""
+					}
+				}
+			} else {
+				// Fallback if we can't access hashTree
+				entry["name"] = docId
+				if includePath {
+					entry["path"] = ""
+				}
+			}
+		}
+		
+		enriched = append(enriched, entry)
+	}
+	
+	return enriched
 }
 
 // GET /api/version
