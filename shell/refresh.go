@@ -9,7 +9,7 @@ import (
 func refreshCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
 		Name: "refresh",
-		Help: "refreshes the tree with remote changes and saves diff snapshot",
+		Help: "refreshes the tree with remote changes",
 		Func: func(c *ishell.Context) {
 			has, gen, err := ctx.Api.Refresh()
 			if err != nil {
@@ -17,7 +17,6 @@ func refreshCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 			c.Printf("root hash: %s\ngeneration: %d\n", has, gen)
-			c.Println("Diff snapshot saved")
 			n, err := ctx.Api.Filetree().NodeByPath(ctx.Path, nil)
 			if err != nil {
 				c.Err(errors.New("current path is invalid"))

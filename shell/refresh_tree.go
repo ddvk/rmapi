@@ -9,7 +9,7 @@ import (
 func refreshTreeCmd(ctx *ShellCtxt) *ishell.Cmd {
 	return &ishell.Cmd{
 		Name: "refresh-tree",
-		Help: "refreshes the file tree with remote changes (does not save diff snapshot)",
+		Help: "refreshes the file tree with remote changes",
 		Func: func(c *ishell.Context) {
 			has, gen, err := ctx.Api.RefreshTree()
 			if err != nil {

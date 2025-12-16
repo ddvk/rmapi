@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/juruen/rmapi/api"
-	"github.com/juruen/rmapi/api/sync15"
 	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/filetree"
@@ -1605,7 +1604,7 @@ func (s *ApiServer) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		"rootHash":    has,
 		"generation":  gen,
 		"currentPath": s.shellCtx.Path,
-		"message":     "Tree refreshed and diff snapshot saved",
+		"message":     "Tree refreshed",
 	})
 }
 
@@ -1665,96 +1664,8 @@ func (s *ApiServer) handleRefreshTree(w http.ResponseWriter, r *http.Request) {
 		"rootHash":    has,
 		"generation":  gen,
 		"currentPath": s.shellCtx.Path,
-		"message":     "Tree refreshed (diff snapshot not updated)",
+		"message":     "Tree refreshed",
 	})
-}
-
-// GET /api/diff
-func (s *ApiServer) handleDiff(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if !s.requireAuth(w, r) {
-		return
-	}
-
-	result, err := s.ctx.Diff()
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	// Enrich result with human-readable names and paths
-	enrichedResult := map[string]interface{}{
-		"has_changes": result.HasChanges,
-		"new_files":   enrichDiffEntries(result.NewFiles, s.ctx, true),
-		"modified":    enrichDiffEntries(result.Modified, s.ctx, true),
-		"deleted":     enrichDiffEntries(result.Deleted, s.ctx, false),
-		// Keep original IDs for backward compatibility
-		"new_files_ids":   result.NewFiles,
-		"modified_ids":    result.Modified,
-		"deleted_ids":     result.Deleted,
-	}
-
-	s.writeSuccess(w, enrichedResult)
-}
-
-// enrichDiffEntries converts document IDs to entries with names and paths
-func enrichDiffEntries(docIds []string, ctx api.ApiCtx, includePath bool) []map[string]interface{} {
-	enriched := make([]map[string]interface{}, 0, len(docIds))
-	filetree := ctx.Filetree()
-	
-	for _, docId := range docIds {
-		entry := map[string]interface{}{
-			"id": docId,
-		}
-		
-		// Try to find the node in the current filetree first
-		node := filetree.NodeById(docId)
-		if node != nil {
-			// Use the same NodeToJSON function as ls endpoint
-			nodeJSON := shell.NodeToJSON(node)
-			entry["name"] = nodeJSON.Name
-			if includePath {
-				// Get full path for the node
-				if path, err := filetree.NodeToPath(node); err == nil {
-					entry["path"] = path
-				} else {
-					entry["path"] = ""
-				}
-			}
-		} else {
-			// Node not found in filetree, try to get name from hashTree directly
-			// This handles cases where the filetree might not be fully synced
-			if syncCtx, ok := ctx.(*sync15.ApiCtx); ok {
-				if doc, err := syncCtx.HashTree().FindDoc(docId); err == nil {
-					docModel := doc.ToDocument()
-					entry["name"] = docModel.Name
-					if includePath {
-						entry["path"] = "" // Can't get path from hashTree alone
-					}
-				} else {
-					// Document not found (might be deleted)
-					entry["name"] = docId
-					if includePath {
-						entry["path"] = ""
-					}
-				}
-			} else {
-				// Fallback if we can't access hashTree
-				entry["name"] = docId
-				if includePath {
-					entry["path"] = ""
-				}
-			}
-		}
-		
-		enriched = append(enriched, entry)
-	}
-	
-	return enriched
 }
 
 // GET /api/version
@@ -1797,7 +1708,6 @@ func runServerMode(port string) {
 	mux.HandleFunc("/api/refresh", server.handleRefresh)
 	mux.HandleFunc("/api/refresh-token", server.handleRefreshToken)
 	mux.HandleFunc("/api/refresh-tree", server.handleRefreshTree)
-	mux.HandleFunc("/api/diff", server.handleDiff)
 	mux.HandleFunc("/api/version", server.handleVersion)
 
 	// Health check endpoint
@@ -1842,10 +1752,9 @@ func runServerMode(port string) {
 		<li>GET /api/stat - Get file metadata</li>
 		<li>GET /api/find - Find files</li>
 		<li>GET /api/account - Get account info</li>
-		<li>POST /api/refresh - Refresh file tree and save diff snapshot</li>
+		<li>POST /api/refresh - Refresh file tree</li>
 		<li>POST /api/refresh-token - Refresh authentication token only</li>
-		<li>POST /api/refresh-tree - Refresh file tree only (does not save diff snapshot)</li>
-		<li>GET /api/diff - Refresh file tree and check if remote content has changed</li>
+		<li>POST /api/refresh-tree - Refresh file tree</li>
 		<li>GET /api/version - Get version</li>
 	</ul>
 	<p><strong>Note:</strong> On first startup, authenticate using POST /api/auth with your one-time code from <a href="https://my.remarkable.com/device/browser/connect">https://my.remarkable.com/device/browser/connect</a></p>

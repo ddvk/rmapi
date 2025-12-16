@@ -27,7 +27,6 @@ type ApiCtx interface {
 	Refresh() (string, int64, error)
 	RefreshTree() (string, int64, error)
 	RefreshToken() error
-	Diff() (*sync15.DiffResult, error)
 }
 
 type UserToken struct {

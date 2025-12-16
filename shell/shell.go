@@ -76,7 +76,6 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutp
 	shell.AddCmd(refreshCmd(ctx))
 	shell.AddCmd(refreshTokenCmd(ctx))
 	shell.AddCmd(refreshTreeCmd(ctx))
-	shell.AddCmd(diffCmd(ctx))
 
 	setCustomCompleter(shell)
 
