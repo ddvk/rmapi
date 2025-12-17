@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/juruen/rmapi/api"
+	"github.com/juruen/rmapi/api/sync15"
 	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/filetree"
@@ -1668,6 +1669,46 @@ func (s *ApiServer) handleRefreshTree(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GET /api/difference
+func (s *ApiServer) handleDifference(w http.ResponseWriter, r *http.Request) {
+	// Force log to stderr to ensure we see it
+	fmt.Fprintf(os.Stderr, "handleDifference called\n")
+	log.Info.Println("handleDifference called")
+	
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.requireAuth(w, r) {
+		fmt.Fprintf(os.Stderr, "handleDifference: auth failed\n")
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "handleDifference: calling DiffTreeCache\n")
+	diff, err := s.ctx.DiffTreeCache()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "handleDifference: DiffTreeCache error: %v\n", err)
+		log.Error.Printf("DiffTreeCache error: %v", err)
+		s.writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Return simplified JSON format by default
+	simplified := sync15.FormatDiffJSON(diff)
+	fmt.Fprintf(os.Stderr, "handleDifference: result - %d new, %d removed, %d moved, %d modified\n", 
+		len(simplified.New), len(simplified.Removed), len(simplified.Moved), len(simplified.Modified))
+	log.Info.Printf("Diff result: %d new, %d removed, %d moved, %d modified", 
+		len(simplified.New), len(simplified.Removed), len(simplified.Moved), len(simplified.Modified))
+	
+	// Debug: log the actual simplified structure
+	jsonBytes, _ := json.Marshal(simplified)
+	fmt.Fprintf(os.Stderr, "handleDifference: Simplified JSON: %s\n", string(jsonBytes))
+	log.Info.Printf("Simplified JSON: %s", string(jsonBytes))
+	
+	s.writeSuccess(w, simplified)
+}
+
 // GET /api/version
 func (s *ApiServer) handleVersion(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1708,6 +1749,7 @@ func runServerMode(port string) {
 	mux.HandleFunc("/api/refresh", server.handleRefresh)
 	mux.HandleFunc("/api/refresh-token", server.handleRefreshToken)
 	mux.HandleFunc("/api/refresh-tree", server.handleRefreshTree)
+	mux.HandleFunc("/api/difference", server.handleDifference)
 	mux.HandleFunc("/api/version", server.handleVersion)
 
 	// Health check endpoint
@@ -1755,6 +1797,7 @@ func runServerMode(port string) {
 		<li>POST /api/refresh - Refresh file tree</li>
 		<li>POST /api/refresh-token - Refresh authentication token only</li>
 		<li>POST /api/refresh-tree - Refresh file tree</li>
+		<li>GET /api/difference - Compare tree.cache with tree.cache.previous and show changes (JSON format)</li>
 		<li>GET /api/version - Get version</li>
 	</ul>
 	<p><strong>Note:</strong> On first startup, authenticate using POST /api/auth with your one-time code from <a href="https://my.remarkable.com/device/browser/connect">https://my.remarkable.com/device/browser/connect</a></p>

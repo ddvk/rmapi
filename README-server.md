@@ -541,7 +541,7 @@ curl -X POST http://localhost:8080/api/refresh-tree
 
 ---
 
-#### `GET /api/diff`
+#### `GET /api/difference`
 Get diff of changes since last snapshot.
 
 **Response:**
@@ -555,7 +555,7 @@ Get diff of changes since last snapshot.
 
 **Example:**
 ```bash
-curl http://localhost:8080/api/diff
+curl http://localhost:8080/api/difference
 ```
 
 ---

@@ -69,17 +69,36 @@ func (ctx *ApiCtx) Refresh() (string, int64, error) {
 		return "", 0, err
 	}
 	ctx.ft = DocumentsFileTree(ctx.hashTree)
+	err = saveTree(ctx.hashTree)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to save tree cache: %v", err)
+	}
 	return ctx.hashTree.Hash, ctx.hashTree.Generation, nil
 }
 
 // RefreshTree syncs the file tree with remote
 func (ctx *ApiCtx) RefreshTree() (string, int64, error) {
+	// Backup the current tree state before refreshing
+	if err := backupTreeCache(); err != nil {
+		log.Warning.Printf("Failed to backup tree cache: %v", err)
+		// Continue with refresh even if backup fails
+	}
+	
 	err := ctx.hashTree.Mirror(ctx.blobStorage, concurrent)
 	if err != nil {
 		return "", 0, err
 	}
 	ctx.ft = DocumentsFileTree(ctx.hashTree)
+	err = saveTree(ctx.hashTree)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to save tree cache: %v", err)
+	}
 	return ctx.hashTree.Hash, ctx.hashTree.Generation, nil
+}
+
+// DiffTreeCache compares the current tree.cache with tree.cache.previous
+func (ctx *ApiCtx) DiffTreeCache() (*TreeDiffResult, error) {
+	return DiffTreeCache()
 }
 
 // RefreshToken updates the user token in the existing context without recreating it
