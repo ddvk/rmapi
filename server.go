@@ -546,14 +546,51 @@ func (s *ApiServer) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	outputPath := fmt.Sprintf("%s.%s", node.Name(), util.RMDOC)
-	err = s.fetchDocumentWithRetry(node.Document.ID, outputPath)
+	// Download the file to a temporary location
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("rmapi-*.%s", util.RMDOC))
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to create temp file: %v", err))
+		return
+	}
+	tmpFile.Close()
+	rmdocPath := tmpFile.Name()
+	defer os.Remove(rmdocPath)
+
+	err = s.fetchDocumentWithRetry(node.Document.ID, rmdocPath)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to download file: %v", err))
 		return
 	}
 
-	s.writeSuccess(w, map[string]string{"message": "Download OK", "file": outputPath})
+	// Open the downloaded file
+	file, err := os.Open(rmdocPath)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to open file: %v", err))
+		return
+	}
+	defer file.Close()
+
+	// Get file info for Content-Length header
+	fileInfo, err := file.Stat()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, fmt.Errorf("failed to stat file: %v", err))
+		return
+	}
+
+	// Set headers for file download
+	filename := fmt.Sprintf("%s.%s", node.Name(), util.RMDOC)
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.WriteHeader(http.StatusOK)
+
+	// Stream the file content to the response
+	_, err = io.Copy(w, file)
+	if err != nil {
+		log.Error.Printf("Failed to stream file: %v", err)
+		// Can't write error response here as headers are already sent
+		return
+	}
 }
 
 // Helper function to generate PNG to memory buffer
@@ -1784,7 +1821,7 @@ func runServerMode(port string) {
 		<li>GET /api/ls - List directory</li>
 		<li>GET /api/pwd - Get current directory</li>
 		<li>POST /api/cd - Change directory</li>
-		<li>GET /api/get - Download file</li>
+		<li>GET /api/get - Download file (streams binary .rmdoc file)</li>
 		<li>GET /api/convert - Convert file to PNG</li>
 		<li>GET /api/hwr - Perform handwriting recognition (requires RMAPI_HWR_APPLICATIONKEY and RMAPI_HWR_HMAC env vars). Use inline=true to stream ZIP file with TXT files</li>
 		<li>POST /api/mkdir - Create directory</li>

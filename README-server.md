@@ -146,21 +146,22 @@ curl -X POST http://localhost:8080/api/cd \
 ---
 
 #### `GET /api/get`
-Download a file from reMarkable.
+Download a file from reMarkable. Returns the binary file content (streams the `.rmdoc` file).
 
 **Query Parameters:**
 - `path` (string, required): File path to download
 
 **Response:**
-```json
-{
-  "message": "Download OK",
-  "file": "document.rmdoc"
-}
-```
+- Content-Type: `application/zip`
+- Content-Disposition: `attachment; filename="<filename>.rmdoc"`
+- Body: Binary file content (the `.rmdoc` ZIP archive)
 
 **Example:**
 ```bash
+# Download and save to file
+curl "http://localhost:8080/api/get?path=/books/document.pdf" -o document.rmdoc
+
+# Stream to stdout
 curl "http://localhost:8080/api/get?path=/books/document.pdf"
 ```
 
