@@ -154,7 +154,7 @@ find / "Journal-..-..-2024"
 # Or just search for all files with 2024 in the filename
 find / ".*2024.*"
 # If you want to search ignore character casing, you can do that as follows:
-find / "(?!i)case_insensitive_search"
+find / "(?i)case_insensitive_search"
 
 # Find files with either "Work" or "Personal" tag
 find --tag="Work" --tag="Personal"
@@ -227,6 +227,20 @@ mput (-src sourcfolder) /Papers
 ## Download a file
 
 Use `get path_to_file` to download a file from the cloud to your local computer.
+
+### Download flags
+
+- `--id`: Interpret the argument as a document ID instead of a path. This is useful when you have the document ID from the `find` command's JSON output.
+
+Examples:
+
+```bash
+# Download by path
+get /Books/MyBook
+
+# Download by document ID (find document ID using the stat command or --json flag)
+get --id abc123-def456-789
+```
 
 ## Recursively download directories and files
 
