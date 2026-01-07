@@ -228,6 +228,20 @@ mput (-src sourcfolder) /Papers
 
 Use `get path_to_file` to download a file from the cloud to your local computer.
 
+### Download flags
+
+- `--id`: Interpret the argument as a document ID instead of a path. This is useful when you have the document ID from the `find` command's JSON output.
+
+Examples:
+
+```bash
+# Download by path
+get /Books/MyBook
+
+# Download by document ID (find document ID using the stat command or --json flag)
+get --id abc123-def456-789
+```
+
 ## Recursively download directories and files
 
 Use `mget path_to_dir` to recursively download all the files in that directory.
