@@ -9,17 +9,17 @@ import (
 )
 
 func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: rm [options] <path>...`
+
 	return &ishell.Cmd{
 		Name:      "rm",
 		Help:      "delete entry",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
 			flagSet := flag.NewFlagSet("rm", flag.ContinueOnError)
 			recursive := flagSet.BoolP("recursive", "r", false, "remove non empty folders")
-			if err := flagSet.Parse(c.Args); err != nil {
-				if err != flag.ErrHelp {
-					c.Err(err)
-				}
+			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return
 			}
 			argRest := flagSet.Args()

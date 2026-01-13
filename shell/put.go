@@ -10,16 +10,13 @@ import (
 )
 
 func putCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: put [options] <local_file> [remote_directory]`
+
 	return &ishell.Cmd{
 		Name:      "put",
 		Help:      "copy a local document to cloud",
 		Completer: createFsEntryCompleter(),
-		LongHelp: `Usage: put [options] <local_file> [remote_directory]
-
-Options:
-  --force              Overwrite existing file (recreates document)
-  --content-only       Replace PDF content only (preserves document metadata)
-  --coverpage=<0|1>    Set coverpage (0 to disable, 1 to set first page as cover)`,
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) == 0 {
 				c.Err(errors.New("missing source file"))
@@ -28,14 +25,12 @@ Options:
 
 			// Parse flags using pflag
 			flags := pflag.NewFlagSet("put", pflag.ContinueOnError)
-			flags.SetOutput(nil) // Suppress pflag's error output, we'll handle it
 
-			force := flags.Bool("force", false, "overwrite existing file")
-			contentOnly := flags.Bool("content-only", false, "replace PDF content only")
-			coverpage := flags.String("coverpage", "", "set coverpage (0 or 1)")
+			force := flags.Bool("force", false, "Overwrite existing file (recreates document)")
+			contentOnly := flags.Bool("content-only", false, "Overwrite existing file (recreates document)")
+			coverpage := flags.String("coverpage", "", "Set coverpage (0 to disable, 1 to set first page as cover)")
 
-			if err := flags.Parse(c.Args); err != nil {
-				c.Err(err)
+			if !processFlagSet(flags, longHelp, c.Args, c) {
 				return
 			}
 

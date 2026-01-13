@@ -86,10 +86,13 @@ type LsOptions struct {
 }
 
 func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: ls [options] [path]`
+
 	return &ishell.Cmd{
 		Name:      "ls",
 		Help:      "list directory",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
 			flagSet := flag.NewFlagSet("ls", flag.ContinueOnError)
 			d := LsOptions{}
@@ -99,10 +102,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 			flagSet.BoolVarP(&d.DirFirst, "group-directories", "d", false, "group directories")
 			flagSet.BoolVarP(&d.ByTime, "time", "t", false, "sort by time")
 			flagSet.BoolVarP(&d.ShowTemplates, "show-templates", "s", false, "don't hide template files")
-			if err := flagSet.Parse(c.Args); err != nil {
-				if err != flag.ErrHelp {
-					c.Err(err)
-				}
+			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return
 			}
 			argRest := flagSet.Args()
