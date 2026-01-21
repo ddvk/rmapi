@@ -2,7 +2,6 @@ package shell
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -13,35 +12,35 @@ import (
 	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/util"
+	"github.com/ogier/pflag"
 )
 
 func mgetCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: mget [options] <remote_dir>`
 	return &ishell.Cmd{
 		Name:      "mget",
 		Help:      "recursively copy remote directory to local",
+		LongHelp:  longHelp,
 		Completer: createDirCompleter(ctx),
 		Func: func(c *ishell.Context) {
-			flagSet := flag.NewFlagSet("mget", flag.ContinueOnError)
-			incremental := flagSet.Bool("i", false, "incremental")
-			outputDir := flagSet.String("o", ".", "output folder")
-			removeDeleted := flagSet.Bool("d", false, "remove deleted/moved")
+			flagSet := pflag.NewFlagSet("mget", pflag.ContinueOnError)
+			incremental := flagSet.BoolP("i", "i", false, "incremental")
+			outputDir := flagSet.StringP("o", "o", ".", "output folder")
+			removeDeleted := flagSet.BoolP("d", "d", false, "remove deleted/moved")
 
-			if err := flagSet.Parse(c.Args); err != nil {
-				if err != flag.ErrHelp {
-					c.Err(err)
-				}
+			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return
 			}
 
 			target := path.Clean(*outputDir)
 			if *removeDeleted && target == "." {
-				c.Err(fmt.Errorf("set a folder explictly with the -o flag when removing deleted (and not .)"))
+				c.Err(fmt.Errorf("Not removing deleted when target is '.'"))
 				return
 			}
 
 			argRest := flagSet.Args()
-			if len(argRest) == 0 {
-				c.Err(errors.New(("missing source dir")))
+			if len(argRest) != 1 {
+				c.Err(errors.New((longHelp)))
 				return
 			}
 			srcName := argRest[0]

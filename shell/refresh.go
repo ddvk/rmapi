@@ -7,10 +7,16 @@ import (
 )
 
 func refreshCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: refresh`
+
 	return &ishell.Cmd{
-		Name: "refresh",
-		Help: "refreshes the tree with remote changes",
+		Name:     "refresh",
+		Help:     "refreshes the tree with remote changes",
+		LongHelp: longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
 			has, gen, err := ctx.api.Refresh()
 			if err != nil {
 				c.Err(err)

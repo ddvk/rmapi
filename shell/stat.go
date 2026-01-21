@@ -8,11 +8,18 @@ import (
 )
 
 func statCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: stat <file>`
+
 	return &ishell.Cmd{
 		Name:      "stat",
 		Help:      "fetch entry metadata",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
+
 			if len(c.Args) == 0 {
 				c.Err(errors.New("missing source file"))
 				return

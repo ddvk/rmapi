@@ -9,11 +9,18 @@ import (
 )
 
 func getCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: get <remote_file>`
+
 	return &ishell.Cmd{
 		Name:      "get",
 		Help:      "copy remote file to local",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
+
 			if len(c.Args) == 0 {
 				c.Err(errors.New("missing source file"))
 				return

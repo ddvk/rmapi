@@ -3,11 +3,10 @@ package shell
 import (
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/model"
-	flag "github.com/ogier/pflag"
+	"github.com/ogier/pflag"
 )
 
 func filterNodes(in []*model.Node, options LsOptions) []*model.Node {
@@ -55,7 +54,7 @@ func sortNodes(in []*model.Node, options LsOptions) []*model.Node {
 }
 
 func displayNode(c *ishell.Context, e *model.Node, d LsOptions) {
-	if !d.Compact {
+	if !(d.Compact || d.Long) {
 		eType := "d"
 		if e.IsFile() {
 			eType = "f"
@@ -70,7 +69,8 @@ func displayNode(c *ishell.Context, e *model.Node, d LsOptions) {
 	}
 	if d.Long {
 		t, _ := e.LastModified()
-		c.Printf("%s %s%s\n", t.Local().Format(time.RFC3339), e.Name(), isFolder)
+		stamp := t.Local().Format("Jan _2 2006  15:04")
+		c.Printf("%s  %s%s\n", stamp, e.Name(), isFolder)
 		return
 	}
 	c.Printf("%s%s\n", e.Name(), isFolder)
@@ -94,7 +94,7 @@ func lsCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Completer: createEntryCompleter(ctx),
 		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
-			flagSet := flag.NewFlagSet("ls", flag.ContinueOnError)
+			flagSet := pflag.NewFlagSet("ls", pflag.ContinueOnError)
 			d := LsOptions{}
 			flagSet.BoolVarP(&d.Compact, "compact", "c", false, "compact format")
 			flagSet.BoolVarP(&d.Long, "long", "l", false, "long format")

@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"flag"
+	flag "github.com/ogier/pflag"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/log"
@@ -15,18 +15,17 @@ import (
 )
 
 func mputCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: mput [options] <local_dir> <remote_dir>`
 	return &ishell.Cmd{
 		Name:      "mput",
 		Help:      "recursively copy local files to remote directory",
+		LongHelp:  longHelp,
 		Completer: createFsEntryCompleter(),
 		Func: func(c *ishell.Context) {
 			flagSet := flag.NewFlagSet("mput", flag.ContinueOnError)
 			src := flagSet.String("src", "", "source dir")
 
-			if err := flagSet.Parse(c.Args); err != nil {
-				if err != flag.ErrHelp {
-					c.Err(err)
-				}
+			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return
 			}
 			argRest := flagSet.Args()

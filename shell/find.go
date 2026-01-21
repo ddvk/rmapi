@@ -9,7 +9,7 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/model"
-	flag "github.com/ogier/pflag"
+	"github.com/ogier/pflag"
 )
 
 // tagSlice implements flag.Value to collect multiple --tag flags
@@ -33,7 +33,7 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Completer: createDirCompleter(ctx),
 		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
-			flagSet := flag.NewFlagSet("find", flag.ContinueOnError)
+			flagSet := pflag.NewFlagSet("find", pflag.ContinueOnError)
 			var compact bool
 			var tags tagSlice
 			var starred bool
@@ -46,7 +46,7 @@ func findCmd(ctx *ShellCtxt) *ishell.Cmd {
 			argRest := flagSet.Args()
 
 			starredFilterEnabled := false
-			flagSet.Visit(func(f *flag.Flag) {
+			flagSet.Visit(func(f *pflag.Flag) {
 				if f.Name == "starred" {
 					starredFilterEnabled = true
 				}

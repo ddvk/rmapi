@@ -16,10 +16,16 @@ type ShellCtxt struct {
 	useHiddenFiles bool
 	UserInfo       api.UserInfo
 	JSONOutput     bool
+	commands       []*ishell.Cmd
 }
 
 func (ctx *ShellCtxt) prompt() string {
 	return fmt.Sprintf("[%s]>", ctx.path)
+}
+
+func (ctx *ShellCtxt) addCmd(shell *ishell.Shell, cmd *ishell.Cmd) {
+	shell.AddCmd(cmd)
+	ctx.commands = append(ctx.commands, cmd)
 }
 
 func setCustomCompleter(shell *ishell.Shell) {
@@ -55,24 +61,27 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutp
 
 	shell.SetPrompt(ctx.prompt())
 
-	shell.AddCmd(lsCmd(ctx))
-	shell.AddCmd(pwdCmd(ctx))
-	shell.AddCmd(cdCmd(ctx))
-	shell.AddCmd(getCmd(ctx))
-	shell.AddCmd(mgetCmd(ctx))
-	shell.AddCmd(mkdirCmd(ctx))
-	shell.AddCmd(rmCmd(ctx))
-	shell.AddCmd(mvCmd(ctx))
-	shell.AddCmd(putCmd(ctx))
-	shell.AddCmd(mputCmd(ctx))
-	shell.AddCmd(versionCmd(ctx))
-	shell.AddCmd(statCmd(ctx))
-	shell.AddCmd(getACmd(ctx))
-	shell.AddCmd(findCmd(ctx))
-	shell.AddCmd(nukeCmd(ctx))
-	shell.AddCmd(accountCmd(ctx))
-	shell.AddCmd(refreshCmd(ctx))
+	ctx.addCmd(shell, helpCmd(shell, ctx))
+	ctx.addCmd(shell, accountCmd(ctx))
+	ctx.addCmd(shell, versionCmd(ctx))
+	ctx.addCmd(shell, refreshCmd(ctx))
 
+	ctx.addCmd(shell, pwdCmd(ctx))
+	ctx.addCmd(shell, cdCmd(ctx))
+	ctx.addCmd(shell, lsCmd(ctx))
+	ctx.addCmd(shell, statCmd(ctx))
+	ctx.addCmd(shell, findCmd(ctx))
+
+	ctx.addCmd(shell, getCmd(ctx))
+	ctx.addCmd(shell, getACmd(ctx))
+	ctx.addCmd(shell, mgetCmd(ctx))
+
+	ctx.addCmd(shell, mvCmd(ctx))
+	ctx.addCmd(shell, putCmd(ctx))
+	ctx.addCmd(shell, mputCmd(ctx))
+	ctx.addCmd(shell, mkdirCmd(ctx))
+	ctx.addCmd(shell, rmCmd(ctx))
+	ctx.addCmd(shell, nukeCmd(ctx))
 	setCustomCompleter(shell)
 
 	if len(args) > 0 {

@@ -9,11 +9,18 @@ import (
 )
 
 func mkdirCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: mkdir <dir>`
+
 	return &ishell.Cmd{
 		Name:      "mkdir",
 		Help:      "create a directory",
 		Completer: createDirCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
+
 			if len(c.Args) == 0 {
 				c.Err(errors.New("missing directory"))
 				return

@@ -2,17 +2,20 @@ package shell
 
 import (
 	"errors"
-	"flag"
 	"fmt"
+
+	flag "github.com/ogier/pflag"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/annotations"
 )
 
 func getACmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: geta [options] <remote_file>`
 	return &ishell.Cmd{
 		Name:      "geta",
 		Help:      "copy remote file to local and generate a PDF with its annotations",
+		LongHelp:  longHelp,
 		Completer: createEntryCompleter(ctx),
 		Func: func(c *ishell.Context) {
 
@@ -20,10 +23,7 @@ func getACmd(ctx *ShellCtxt) *ishell.Cmd {
 			addPageNumbers := flagSet.Bool("p", false, "add page numbers")
 			allPages := flagSet.Bool("a", false, "all pages")
 			annotationsOnly := flagSet.Bool("n", false, "annotations only")
-			if err := flagSet.Parse(c.Args); err != nil {
-				if err != flag.ErrHelp {
-					c.Err(err)
-				}
+			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return
 			}
 			argRest := flagSet.Args()

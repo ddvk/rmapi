@@ -10,11 +10,18 @@ import (
 )
 
 func mvCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: mv <source> <dest>`
+
 	return &ishell.Cmd{
 		Name:      "mv",
 		Help:      "mv file or directory",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
+
 			if len(c.Args) < 2 {
 				c.Err(errors.New("missing source and/or destination"))
 				return

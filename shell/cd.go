@@ -7,11 +7,18 @@ import (
 )
 
 func cdCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: cd <directory>`
+
 	return &ishell.Cmd{
 		Name:      "cd",
 		Help:      "change directory",
 		Completer: createDirCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
+
 			if len(c.Args) == 0 {
 				return
 			}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/abiosoft/ishell"
-	flag "github.com/ogier/pflag"
+	"github.com/ogier/pflag"
 )
 
 func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
@@ -17,7 +17,7 @@ func rmCmd(ctx *ShellCtxt) *ishell.Cmd {
 		Completer: createEntryCompleter(ctx),
 		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
-			flagSet := flag.NewFlagSet("rm", flag.ContinueOnError)
+			flagSet := pflag.NewFlagSet("rm", pflag.ContinueOnError)
 			recursive := flagSet.BoolP("recursive", "r", false, "remove non empty folders")
 			if !processFlagSet(flagSet, longHelp, c.Args, c) {
 				return

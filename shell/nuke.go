@@ -7,11 +7,17 @@ import (
 )
 
 func nukeCmd(ctx *ShellCtxt) *ishell.Cmd {
+	longHelp := `Usage: nuke`
+
 	return &ishell.Cmd{
 		Name:      "nuke",
 		Help:      "deletes everything",
 		Completer: createEntryCompleter(ctx),
+		LongHelp:  longHelp,
 		Func: func(c *ishell.Context) {
+			if checkHelp(longHelp, c.Args, c) {
+				return
+			}
 			fmt.Print("Are you sure, this will DELETE EVERYTHING! type [YES]:")
 			var response string
 			_, err := fmt.Scanln(&response)
