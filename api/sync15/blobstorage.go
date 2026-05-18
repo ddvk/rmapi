@@ -3,7 +3,9 @@ package sync15
 import (
 	"fmt"
 	"io"
+	"strings"
 
+	"github.com/juruen/rmapi/archive"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/log"
 	"github.com/juruen/rmapi/model"
@@ -21,11 +23,24 @@ func NewBlobStorage(http *transport.HttpClientCtx) *BlobStorage {
 	}
 }
 
+// reMarkable Cloud (since ~2026-05-18) rejects rm-filename header values
+// without a file extension (HTTP 400 "unexpected 'rm-filename' http header").
+// Several callers pass bare DocumentIDs (UUIDs) or literal "roothash"
+// through to the transport layer; at this layer all such cases represent
+// doc-level docSchema reads/writes, so default to the .docSchema suffix.
+func ensureExtension(filename string) string {
+	if !strings.Contains(filename, ".") {
+		return filename + "." + string(archive.DocSchemaExt)
+	}
+	return filename
+}
+
 func (b *BlobStorage) GetReader(hash, filename string) (io.ReadCloser, error) {
-	return b.http.GetStream(transport.UserBearer, config.BlobUrl+hash, filename)
+	return b.http.GetStream(transport.UserBearer, config.BlobUrl+hash, ensureExtension(filename))
 }
 
 func (b *BlobStorage) UploadBlob(hash, filename string, reader io.Reader) error {
+	filename = ensureExtension(filename)
 	log.Trace.Println("uploading blob ", filename)
 
 	headers := map[string]string{}
