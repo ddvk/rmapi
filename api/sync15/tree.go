@@ -374,7 +374,7 @@ func BuildTree(provider RemoteStorage) (*HashTree, error) {
 	tree.SchemaVersion = schema
 
 	for _, e := range entries {
-		f, err := provider.GetReader(e.Hash, e.DocumentID)
+		f, err := provider.GetReader(e.Hash, addExt(e.DocumentID, archive.DocSchemaExt))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read blob %s: %w", e.DocumentID, err)
 		}
