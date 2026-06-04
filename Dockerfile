@@ -1,6 +1,6 @@
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.6.1 AS xx
 
-FROM --platform=$BUILDPLATFORM golang:alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.11-alpine AS builder
 COPY --from=xx / /
 RUN apk add --no-cache git clang lld
 ARG TARGETPLATFORM
