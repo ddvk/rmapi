@@ -66,7 +66,7 @@ func AuthHttpCtx(reAuth, nonInteractive bool) *transport.HttpClientCtx {
 
 func readCode() string {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter one-time code (go to https://my.remarkable.com/device/browser/connect): ")
+	fmt.Printf("Enter one-time code (go to %s): ", config.ConnectDevice)
 	code, _ := reader.ReadString('\n')
 
 	code = strings.TrimSuffix(code, "\n")
