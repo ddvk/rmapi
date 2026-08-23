@@ -2,6 +2,7 @@ package config
 
 import "os"
 
+var ConnectDevice string
 var NewTokenDevice string
 var NewUserDevice string
 var DocHost string
@@ -21,6 +22,7 @@ func init() {
 	docHost := "https://document-storage-production-dot-remarkable-production.appspot.com"
 	authHost := "https://webapp-prod.cloud.remarkable.engineering"
 	syncHost := "https://internal.cloud.remarkable.com"
+	connectHost := "https://my.remarkable.com"
 
 	host := os.Getenv("RMAPI_DOC")
 	if host != "" {
@@ -38,8 +40,10 @@ func init() {
 		authHost = host
 		docHost = host
 		syncHost = host
+		connectHost = host
 	}
 
+	ConnectDevice = connectHost + "/device/browser/connect"
 	NewTokenDevice = authHost + "/token/json/2/device/new"
 	NewUserDevice = authHost + "/token/json/2/user/new"
 	ListDocs = docHost + "/document-storage/json/2/docs"
