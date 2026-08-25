@@ -1,19 +1,19 @@
 module github.com/juruen/rmapi
 
-go 1.23.0
+go 1.25.0
 
 replace github.com/flynn-archive/go-shlex => github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 
 require (
 	github.com/abiosoft/ishell v2.0.0+incompatible
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.1.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/ogier/pflag v0.0.1
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.5.1
 	github.com/unidoc/unipdf/v3 v3.6.1
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.20.0
 	gopkg.in/yaml.v2 v2.2.8
 )
 
@@ -32,8 +32,8 @@ require (
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/image v0.5.0 // indirect
+	golang.org/x/image v0.41.0 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )

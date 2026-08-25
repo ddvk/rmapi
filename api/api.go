@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/juruen/rmapi/api/sync15"
 	"github.com/juruen/rmapi/filetree"
 	"github.com/juruen/rmapi/model"
@@ -33,7 +33,7 @@ type UserToken struct {
 		Email  string
 	} `json:"auth0-profile"`
 	Scopes string
-	*jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 type SyncVersion int
@@ -64,7 +64,7 @@ func ParseToken(userToken string) (token *UserInfo, err error) {
 		return nil, fmt.Errorf("can't parse token %v", err)
 	}
 
-	if !claims.VerifyExpiresAt(time.Now().Unix(), false) {
+	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
 		return nil, errors.New("token Expired")
 	}
 
