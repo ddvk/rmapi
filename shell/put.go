@@ -41,12 +41,7 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 				return
 			}
 
-			var tags []string
-			for _, tag := range strings.Split(*tagsFlag, ",") {
-				if tag = strings.TrimSpace(tag); tag != "" {
-					tags = append(tags, tag)
-				}
-			}
+			tags := parseTags(*tagsFlag)
 
 			args := flags.Args()
 			if len(args) == 0 {
@@ -250,4 +245,15 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 			ctx.api.Filetree().AddDocument(document)
 		},
 	}
+}
+
+// parseTags splits a comma-separated --tag value into trimmed, non-empty names.
+func parseTags(value string) []string {
+	var tags []string
+	for _, tag := range strings.Split(value, ",") {
+		if tag = strings.TrimSpace(tag); tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
 }

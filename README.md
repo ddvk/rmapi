@@ -183,6 +183,7 @@ put book.pdf /books
 - `--coverpage=<0|1>`: Set coverpage (0 to disable, 1 to set first page as cover)
 - `--currentpage=<N>`: Set the current page, 1-indexed (PDF only)
 - `--contrast=<fullpage|off|adaptive>`: Set the contrast filter (PDF and epub only)
+- `--tag=<name[,name]>`: Set document tags on the new document (comma-separated; the `=` form is required)
 
 Examples:
 
@@ -202,6 +203,9 @@ put --coverpage=1 document.pdf
 # Upload and open to page 5 with full-page contrast
 put --currentpage=5 --contrast=fullpage document.pdf
 
+# Upload with two tags
+put --tag=book,fiction document.pdf
+
 # Replace PDF content in specific directory
 put --content-only document.pdf /target-directory
 
@@ -209,7 +213,7 @@ put --content-only document.pdf /target-directory
 put --force document.pdf /reports
 ```
 
-**Note**: `--force` and `--content-only` are mutually exclusive. The `--coverpage`, `--currentpage`, and `--contrast` flags can be combined with either. If the target document doesn't exist, all flags will create a new document.
+**Note**: `--force` and `--content-only` are mutually exclusive. The `--coverpage`, `--currentpage`, `--contrast`, and `--tag` flags can be combined with either. If the target document doesn't exist, all flags will create a new document.
 
 ## Recursively upload directories and files
 
