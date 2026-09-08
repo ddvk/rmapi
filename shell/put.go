@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/juruen/rmapi/util"
@@ -34,9 +35,17 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 			coverpage := flags.String("coverpage", "", "Set coverpage (0 to disable, 1 to set first page as cover)")
 			currentpageStr := flags.String("currentpage", "", "Set current page (1-indexed)")
 			contrast := flags.String("contrast", "", "Set contrast filter (fullpage, off, adaptive)")
+			tagsFlag := flags.String("tag", "", "Comma-separated document tags to set on upload")
 
 			if !processFlagSet(flags, longHelp, c.Args, c) {
 				return
+			}
+
+			var tags []string
+			for _, tag := range strings.Split(*tagsFlag, ",") {
+				if tag = strings.TrimSpace(tag); tag != "" {
+					tags = append(tags, tag)
+				}
 			}
 
 			args := flags.Args()
@@ -153,7 +162,7 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 					// Document doesn't exist, create new one
 					c.Printf("uploading: [%s]...", srcName)
 					dstDir := node.Id()
-					document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag)
+					document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag, tags)
 					if err != nil {
 						c.Err(fmt.Errorf("failed to upload file [%s]: %v", srcName, err))
 						return
@@ -215,7 +224,7 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 
 				// Upload new document
 				dstDir := node.Id()
-				document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag)
+				document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag, tags)
 				if err != nil {
 					c.Err(fmt.Errorf("failed to upload replacement file [%s]: %v", srcName, err))
 					return
@@ -229,7 +238,7 @@ func putCmd(ctx *ShellCtxt) *ishell.Cmd {
 			// File doesn't exist, upload new document
 			c.Printf("uploading: [%s]...", srcName)
 			dstDir := node.Id()
-			document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag)
+			document, err := ctx.api.UploadDocument(dstDir, srcName, true, coverpageFlag, currentPageFlag, pageCountFlag, contrastFlag, tags)
 
 			if err != nil {
 				c.Err(fmt.Errorf("failed to upload file [%s] %v", srcName, err))

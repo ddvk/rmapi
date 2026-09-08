@@ -145,7 +145,7 @@ func (ctx *ApiCtx) CreateDir(parentId, name string, notify bool) (*model.Documen
 	}
 	files.AddMap(objectName, filePath, archive.MetadataExt)
 
-	objectName, filePath, err = archive.CreateContent(id, "", tmpDir, nil, nil, nil, nil, nil)
+	objectName, filePath, err = archive.CreateContent(id, "", tmpDir, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ func (ctx *ApiCtx) MoveEntry(src, dstDir *model.Node, name string) (*model.Node,
 }
 
 // UploadDocument uploads a local document given by sourceDocPath under the parentId directory
-func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, notify bool, coverpage *int, currentPage *int, pageCount *int, contrastFilter *string) (*model.Document, error) {
+func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, notify bool, coverpage *int, currentPage *int, pageCount *int, contrastFilter *string, tags []string) (*model.Document, error) {
 	//TODO: overwrite file
 	name, ext := util.DocPathToName(sourceDocPath)
 
@@ -356,12 +356,17 @@ func (ctx *ApiCtx) UploadDocument(parentId string, sourceDocPath string, notify 
 
 	defer os.RemoveAll(tmpDir)
 
-	docFiles, id, err := archive.Prepare(name, parentId, sourceDocPath, ext, tmpDir, coverpage, currentPage, pageCount, contrastFilter)
+	docFiles, id, err := archive.Prepare(name, parentId, sourceDocPath, ext, tmpDir, coverpage, currentPage, pageCount, contrastFilter, tags)
 	if err != nil {
 		return nil, err
 	}
 
 	doc := NewBlobDoc(name, id, model.DocumentType, parentId)
+	for _, tag := range tags {
+		if tag != "" {
+			doc.Content.DocumentTags = append(doc.Content.DocumentTags, archive.Tag{Name: tag})
+		}
+	}
 	for _, f := range docFiles.Files {
 		log.Info.Printf("File %s, path: %s", f.Name, f.Path)
 		hash, size, err := FileHashAndSize(f.Path)
