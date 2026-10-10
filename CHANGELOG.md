@@ -1,4 +1,6 @@
 ## rmapi master
+- tag: new command to add, remove or replace document tags on an existing document without re-uploading it (@stop777)
+- put: add `--tag=name[,name]` to set document tags on upload (@stop777)
 
 ## rmapi 0.0.27 (September 24, 2024)
 - fix sync api
