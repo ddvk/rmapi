@@ -288,6 +288,25 @@ Use `mv source destination` to move or rename a file or directory.
 
 Use `stat entry` to dump its metadata as reported by the Cloud API.
 
+## Tag a document
+
+Use `tag` to add, remove or replace document tags on a file that is already on the device. The document is rewritten in place (same ID), so annotations are kept. Tags are comma-separated; quote names that contain spaces.
+
+```bash
+# Add tags (default)
+tag /books/document case,emba
+tag /books/document "prep sheet"
+
+# Remove tags
+tag --remove /books/document emba
+
+# Replace the whole list, or clear it
+tag --set /books/document "technical note"
+tag --set /books/document
+```
+
+Use `find --tag=<name>` to list documents carrying a tag.
+
 # Run command non-interactively
 
 Add the commands you want to execute to the arguments of the binary.

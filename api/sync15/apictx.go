@@ -2,7 +2,10 @@ package sync15
 
 import (
 	"archive/zip"
+	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -455,6 +458,70 @@ func (ctx *ApiCtx) ReplaceDocumentFile(docId, sourceDocPath string, notify bool)
 
 		fileEntry.Hash = hashStr
 		fileEntry.Size = size
+
+		if err := doc.Rehash(); err != nil {
+			return err
+		}
+		if err := t.Rehash(); err != nil {
+			return err
+		}
+
+		indexReader, err := doc.IndexReader()
+		if err != nil {
+			return err
+		}
+		return ctx.blobStorage.UploadBlob(doc.Hash, addExt(doc.DocumentID, archive.DocSchemaExt), indexReader)
+	}, notify)
+}
+
+// SetDocumentTags replaces the document-level tags of an existing document.
+// Only the .content blob is rewritten (see archive.SetContentTags), so the
+// document keeps its ID, its PDF and every annotation.
+func (ctx *ApiCtx) SetDocumentTags(docId string, tags []string, notify bool) error {
+	return Sync(ctx.blobStorage, ctx.hashTree, func(t *HashTree) error {
+		doc, err := t.FindDoc(docId)
+		if err != nil {
+			return err
+		}
+
+		var contentEntry *Entry
+		for _, f := range doc.Files {
+			if strings.HasSuffix(f.DocumentID, ".content") {
+				contentEntry = f
+				break
+			}
+		}
+		if contentEntry == nil {
+			return errors.New("document has no .content file")
+		}
+
+		reader, err := ctx.blobStorage.GetReader(contentEntry.Hash, contentEntry.DocumentID)
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+		raw, err := io.ReadAll(reader)
+		if err != nil {
+			return err
+		}
+
+		updated, err := archive.SetContentTags(raw, tags)
+		if err != nil {
+			return err
+		}
+
+		sum := sha256.Sum256(updated)
+		hashStr := hex.EncodeToString(sum[:])
+		if err := ctx.blobStorage.UploadBlob(hashStr, contentEntry.DocumentID, bytes.NewReader(updated)); err != nil {
+			return err
+		}
+		contentEntry.Hash = hashStr
+		contentEntry.Size = int64(len(updated))
+
+		var content archive.Content
+		if err := json.Unmarshal(updated, &content); err == nil {
+			doc.Content = content
+		}
 
 		if err := doc.Rehash(); err != nil {
 			return err

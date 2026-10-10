@@ -80,6 +80,7 @@ func RunShell(apiCtx api.ApiCtx, userInfo *api.UserInfo, args []string, jsonOutp
 	ctx.addCmd(shell, putCmd(ctx))
 	ctx.addCmd(shell, mputCmd(ctx))
 	ctx.addCmd(shell, mkdirCmd(ctx))
+	ctx.addCmd(shell, tagCmd(ctx))
 	ctx.addCmd(shell, rmCmd(ctx))
 	ctx.addCmd(shell, nukeCmd(ctx))
 	setCustomCompleter(shell)
