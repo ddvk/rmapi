@@ -135,6 +135,7 @@ func (p *PdfGenerator) Generate() error {
 
 		contentCreator := contentstream.NewContentCreator()
 		contentCreator.Add_q()
+		bounds := annotationBounds{}
 
 		for _, layer := range pageAnnotations.Data.Layers {
 			for _, line := range layer.Lines {
@@ -163,6 +164,9 @@ func (p *PdfGenerator) Generate() error {
 						return err
 					}
 					page.AddAnnotation(ann)
+					if err := bounds.includeAnnotation(ann); err != nil {
+						return err
+					}
 				} else {
 					path := draw.NewPath()
 					for i := 0; i < len(line.Points); i++ {
@@ -185,6 +189,16 @@ func (p *PdfGenerator) Generate() error {
 						lineWidth = 0.1
 					}
 					contentCreator.Add_w(lineWidth)
+					// Default PDF miter limit is 10; a join may extend up to
+					// five stroke widths beyond a point. Include that envelope
+					// so thick strokes and sharp joins do not get clipped.
+					padding := 5 * lineWidth
+					for _, point := range path.Points {
+						bounds.include(pdf.PdfRectangle{
+							Llx: point.X - padding, Lly: point.Y - padding,
+							Urx: point.X + padding, Ury: point.Y + padding,
+						})
+					}
 
 					switch line.BrushColor {
 					case rm.Black:
@@ -229,6 +243,9 @@ func (p *PdfGenerator) Generate() error {
 					continue
 				}
 				page.AddAnnotation(ann)
+				if err := bounds.includeAnnotation(ann); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -238,6 +255,12 @@ func (p *PdfGenerator) Generate() error {
 		//hack: wrap the page content in a context to prevent transformation matrix misalignment
 		wrapper := []string{"q", pageContentStreams, "Q", drawingOperations}
 		page.SetContentStreams(wrapper, core.NewFlateEncoder())
+		// Extend only the page boundaries after rendering. Changing the
+		// Creator's dimensions would move or rescale the existing ink and
+		// could also affect the following page.
+		if err := bounds.expandPage(page); err != nil {
+			return err
+		}
 	}
 
 	return c.WriteToFile(p.outputFilePath)
