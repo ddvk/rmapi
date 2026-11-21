@@ -74,7 +74,7 @@ func LoadTokens(path string) model.AuthTokens {
 	err = yaml.Unmarshal(content, &tokens)
 
 	if err != nil {
-		log.Error.Fatalln("failed to parse", path)
+		log.Error.Fatalf("failed to parse %s. Set %s to use a different config file.", path, configFileEnvVar)
 	}
 
 	return tokens
