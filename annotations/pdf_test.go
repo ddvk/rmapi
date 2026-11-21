@@ -2,12 +2,13 @@ package annotations
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 )
 
 func test(name string, t *testing.T) {
 	zip := fmt.Sprintf("testfiles/%s.zip", name)
-	outfile := fmt.Sprintf("/tmp/%s.pdf", name)
+	outfile := filepath.Join(t.TempDir(), name+".pdf")
 	options := PdfGeneratorOptions{AddPageNumbers: true, AllPages: false, AnnotationsOnly: false}
 	generator := CreatePdfGenerator(zip, outfile, options)
 	err := generator.Generate()
