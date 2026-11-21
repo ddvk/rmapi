@@ -84,12 +84,11 @@ func SaveTokens(path string, tokens model.AuthTokens) {
 	content, err := yaml.Marshal(tokens)
 
 	if err != nil {
-		log.Warning.Println("failed to marsha tokens", err)
+		log.Warning.Println("failed to marshal tokens", err)
+		return
 	}
 
-	os.WriteFile(path, content, 0600)
-
-	if err != nil {
-		log.Warning.Println("failed to save config to", path)
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		log.Warning.Println("failed to save config:", err)
 	}
 }
