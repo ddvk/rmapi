@@ -141,14 +141,16 @@ func (z *Zip) readContent(zr *zip.Reader) error {
 	return nil
 }
 
-// readPagedata reads the .pagedata file contained in an archive
-// and iterate to gather which template was used for each page.
+// readPagedata reads the page template names from the optional .pagedata file.
 func (z *Zip) readPagedata(zr *zip.Reader) error {
 	files, err := zipExtFinder(zr, ".pagedata")
 	if err != nil {
 		return err
 	}
 
+	if len(files) == 0 {
+		return nil
+	}
 	if len(files) != 1 {
 		return errors.New("archive does not contain a unique pagedata file")
 	}
